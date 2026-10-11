@@ -15,3 +15,4 @@
 - Second capture reached 240 samples; kt_watch and kt_rays executed. Ray hit at 2.2592 m with hit position/normal. Crouch-like camera-height change did not produce a distinct animation state; do not use that animation as a stance gate.
 - Prepared v0.0.2 with official AI.GetStance and physical-stats probes, documented soul health/stamina reads and read-only CVar candidates located in the installed DLL. No movement variables are written. Awaiting closed-game deployment.
 - Three temporary-fixture deployment tests passed: verified backup/install/idempotence/owned removal, preservation of edited installed files, rejection of changed game binary and excluding mod order. Live uninstall not yet exercised.
+- After KCD2 closed, archived and removed owned v0.0.1 successfully, backed up 237 saves again, installed and hash-verified v0.0.2. This verifies live removal/reinstallation of the owned package; v0.0.2 running-game results are pending.
