@@ -44,4 +44,3 @@ Logging configuration is at the top of `src/Data/Scripts/KuttenbergThief/Probe.l
 - [Test plan](docs/TestPlan.md): gate checks and full swoop acceptance scenarios.
 - [Sources](docs/Sources.md): pinned reference revisions and evidence limitations.
 - [Change log](MODLOG.md): meaningful changes and verification.
-

@@ -1,6 +1,6 @@
-# Status — 2026-10-11
+# Status â€” 2026-10-11
 
-Milestone: **M0 — retail capability probe**. Source/build v0.0.2; installed and runtime-tested v0.0.1 until the next closed-game deployment. Movement and stealth replacement remain disabled.
+Milestone: **M0 â€” retail capability probe**. Source/build v0.0.2; installed and runtime-tested v0.0.1 until the next closed-game deployment. Movement and stealth replacement remain disabled.
 
 | Evidence level | Result |
 |---|---|
@@ -19,4 +19,3 @@ Open: runtime availability and semantics of stance/grounded state, movement owne
 Observed missing in retail: `player:GetStance()`, `CryAction.IsGamePaused`, `Game.IsGamePaused`, `ActionMapManager.EnableActionFilter`. `GetPhysicalStats`, `SetVelocity`, `SimulateOnAction` and Physics ray calls exist, but their motion/contact semantics remain untested. First animation samples: MotionIdle, MotionMovement, AnimationControlled. No evidence yet for a crouch-specific state or pause/load recovery. No movement writes have been performed.
 
 Second capture: camera height relative to entity position changed from about 1.60 to 1.17 m during the requested crouch test, while animation still reports only MotionIdle/MotionMovement. Camera height is not accepted as authoritative crouch. Ray returned one hit at 2.2592 m, a position and normal. Raycast read works; full-body sweep and grounded state remain unproven.
-

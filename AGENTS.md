@@ -13,4 +13,3 @@
 - Use `python tools/project.py build|backup|install|uninstall|collect`. Install/removal require a closed game. Installer hashes the inspected retail binaries.
 - Record written / built / installed / running-game-verified / user-confirmed separately in STATUS and MODLOG.
 - Keep README, docs/Architecture.md, docs/MovementSpec.md, docs/TestPlan.md, STATUS.md and MODLOG.md current.
-
