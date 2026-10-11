@@ -1,0 +1,11 @@
+<kcd_mod>
+  <info>
+    <name>Kuttenberg Thief - Capability Probe</name>
+    <modid>kuttenberg_thief</modid>
+    <description>Read-only retail API probe. Movement and stealth replacement are not enabled.</description>
+    <author>Local KCD2 Thief project</author>
+    <version>0.0.2</version>
+    <created_on>2026-10-11</created_on>
+  </info>
+  <supports><version>1.5.6</version></supports>
+</kcd_mod>

@@ -1,0 +1,15 @@
+.local/
+build/
+dist/
+__pycache__/
+*.pyc
+*.sav
+*.whs
+*.dmp
+*.pak
+*.dll
+*.exe
+*.obj
+*.pdb
+*.log
+
