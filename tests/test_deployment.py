@@ -4,6 +4,8 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+import sys
+sys.path.insert(0, str(Path(__file__).parents[1] / 'tools'))
 
 spec = importlib.util.spec_from_file_location("project", Path(__file__).parents[1] / "tools/project.py")
 project = importlib.util.module_from_spec(spec)

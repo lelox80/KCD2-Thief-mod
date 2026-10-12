@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<database name="barbora">
+  <buffs version="1">
+    <buff buff_id="eacd8708-9dde-43a6-bddb-76d56b9338d1" buff_name="kt_speed_trial" buff_class_id="15" buff_exclusivity_id="1" buff_lifetime_id="0" buff_params="rms*1.25" duration="2" implementation="Cpp:BasicTimed" is_persistent="false" icon_id="0" />
+  </buffs>
+</database>

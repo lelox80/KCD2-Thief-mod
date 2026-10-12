@@ -1,21 +1,23 @@
-# Status — 2026-10-11
+# Status — 2026-10-12
 
-Milestone: **M0 — retail capability probe**. Source/build/installed v0.0.2; runtime-tested v0.0.1. Movement and stealth replacement remain disabled.
+**M0 state observation works in retail. M1 speed comparison v0.0.5 is built and installed; runtime pending. No completed swoop or stealth replacement.**
 
 | Evidence level | Result |
 |---|---|
-| Code written | v0.0.2 read-only Lua probe adds AI.GetStance, physical stats, stamina/health and movement-variable queries |
-| Build passed | v0.0.2 Lua 5.1.5 regression/syntax checks; stored ZIP PAK/CRC; 3 deployment lifecycle tests passed in disposable fixture |
-| Installed | v0.0.2 installed and verified by SHA-256; v0.0.1 archived/removed; 237 saves backed up again |
-| Verified in running game | v0.0.1 official entry loaded in normal retail 1.5.6; 240 player-state samples, successful kt_watch and kt_rays; position, velocity, camera and several activity getters returned meaningful data |
-| User playtest confirmed | Pending |
+| Written | Official Lua diagnostics, generated XGen observer, one additive owned speed buff, opt-in bounded speed comparison |
+| Built | Lua 5.1 regression/syntax checks and five Python checks passed; final real-project package/CRC and owned buff validation passed |
+| Installed | v0.0.5 hash-verified; prior v0.0.4 archived; 237 save files backed up and verified |
+| Running game verified | v0.0.4: 120 snapshots, 17 successful contact changes, 47 actor-state observations including two crouch on/off cycles, air, dialogue, horse, bed, minigame and animation activity |
+| User confirmed | User performed diagnostic play; no subjective speed or collision test yet |
 
-Selected route: official PAK/Lua mod first. A native adapter is a fallback if runtime evidence shows that retail Lua cannot supply a safe character movement request, state gates, or physics queries. The loader and development executable are not assumed compatible with retail 1.5.6.
+Current route: supported PAK + Lua + XGen state observations, with a **player-only RPG speed effect** as the next locomotion experiment. Shipped crouch perks use `rms*1.15/1.2`, and quest effects also modify rms. The experiment applies only our unique, nonpersistent, finite-duration definition to Henry. KCD2 remains the sole input, collision, camera and animation controller. No native loader, executable patch, CVar modification or forced motion.
 
-Next action: run v0.0.2 and perform a short stand/crouch/jump/wall test to inspect AI stance and physical stats. Presence of `SetVelocity` is insufficient: next gate is reliable state/grounding plus a controlled collision-aware motion experiment with normal actor control and interruption handling. Do not implement swoop before this gate passes.
+`SimulateOnAction` is rejected as the forward movement route for this build: the inspected C_Player virtual dispatch filters to six combat actions, excluding moveforward. Global speed CVars remain unproven and are not written. See [native evidence](docs/NativeInvestigation.md) and [experiment](docs/SpeedTrial.md).
 
-Open: runtime availability and semantics of stance/grounded state, movement ownership, full-body sweep, pause/load events, footsteps/noise, stamina/fall damage and detection origin; Thief save folder/behavior measurements; installed tools' data workspace setup and version mismatch.
+Latest capture: `.local/logs/20261012T190752390468Z-probe.log`, summary `.local/evidence/v004-summary.json`. The 47 XGen lines continue for about 38 minutes; the timed 120-snapshot window ends earlier. Two long async/simulation gaps occurred, but do not independently identify their cause. Camera/body height ranged -0.3057 to 26.518 m across all snapshots: reject camera height as a stance source. No relevant error matched the collector. This capture contains one generation; it does not prove a v0.0.4 reload. Earlier v0.0.3 did observe a second gameplay generation.
 
-Observed missing in retail: `player:GetStance()`, `CryAction.IsGamePaused`, `Game.IsGamePaused`, `ActionMapManager.EnableActionFilter`. `GetPhysicalStats`, `SetVelocity`, `SimulateOnAction` and Physics ray calls exist, but their motion/contact semantics remain untested. First animation samples: MotionIdle, MotionMovement, AnimationControlled. No evidence yet for a crouch-specific state or pause/load recovery. No movement writes have been performed.
+Next: user runs `kt_speed_test` crouched on open ground and against a wall. Confirm the new buff loads, the rms value and actual speed change, removal, ordinary movement recovery and wall contact. If an API/state is unknown, the command refuses and logs the precise reason. Do not escalate to a full swoop before this result.
 
-Second capture: camera height relative to entity position changed from about 1.60 to 1.17 m during the requested crouch test, while animation still reports only MotionIdle/MotionMovement. Camera height is not accepted as authoritative crouch. Ray returned one hit at 2.2592 m, a position and normal. Raycast read works; full-body sweep and grounded state remain unproven.
+Open: runtime buff API/table loading/expiry/removal; cancellation timing on pause/load and all incompatible states; slopes/stairs/ledge behavior; smooth distance/duration control and activation binding; noise, stamina, damage and detection; Thief save location and measurements; development tools setup/version mismatch. Test only with a backed-up existing save. New XGen save serialization/removal remains unverified.
+
+Latest verified backup: `.local/backups/20261012T192114257141Z` (237 files). Previous installed package archived at `.local/backups/20261012T192113736109Z-uninstalled`. User asked for the open-ground comparison; feedback pending.

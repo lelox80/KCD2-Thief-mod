@@ -1,4 +1,4 @@
-# Capability assessment — 2026-10-11
+# Capability assessment — 2026-10-12
 
 ## Decision
 
@@ -19,10 +19,10 @@ Evidence labels: **D** official documentation; **I** inspected installed data; *
 | Mod initialization | D: `Scripts/Mods/<modid>.lua`, uncompressed PAK, `mod.manifest` | R: package loads and executes in normal retail | Loose-file loading documented only for development |
 | Input/key bindings | I: `Player:OnAction(action,activation,value)`; D: `actor:SimulateOnAction`, `ActionMapManager`, `Game.KeybindsRebindInput`; XML keybind patches in source example | Actual delivered actions, mode constants, remapping, focus and ownership unverified | Debug build does not prove retail input support. M0 only registers console diagnostics |
 | Position/orientation/velocity read | D: entity `GetWorldPos`, `GetWorldAngles`, `GetVelocity`, `GetSpeed` | R: meaningful values during movement and standstill | Community reports differing retail/dev behavior; not accepted as our verification |
-| Crouched state | I: `stance.xml` maps **1=crouch, 3=normal**; local NPC script agrees | Authoritative player runtime accessor still unknown. `GetStance` is a presence/read probe, not assumed API | Community document's 2=crouch claim conflicts with this table; could be a different enum or error. Never map by guessing |
+| Crouched state | I: `stance.xml` maps **1=crouch, 3=normal**; local NPC script agrees | R: XGen ActorStateCheck bridge reports two crouch on/off cycles in v0.0.4; direct GetStance remains missing | Community document's 2=crouch claim conflicts with this table; could be a different enum or error. Never map by guessing |
 | Movement control | D: entity `SetVelocity`, `AddImpulse`; actor simulated action and movement restrictions | No motion API called yet. SetVelocity may be overwritten by actor locomotion or bypass desired behavior | Next experiment must establish correct frame/physics timing and arbitration |
-| Collision/ground/slopes/stairs/falling | I: living physical parameters in NPC scripts and player slopeSlowdown; native controller exists | No authoritative grounded/normal/contact accessor established. No collision claim | Native living-entity status/request path is fallback; validate body volume and stairs, not one ray |
-| Raycasts | D: `Physics.RayWorldIntersection(pos,dir,maxHits,mask,skip...)`; S: native loader inspector performs rays | Manual `kt_rays` provided; return schema/result not yet verified | Three relevant loader signatures match retail once each, zero in development raw DLL; ABI remains unverified |
+| Collision/ground/slopes/stairs/falling | I: living physical parameters in NPC scripts and player slopeSlowdown; native controller exists | R + targeted static evidence: IsFlying maps to living status bFlying and changes on air/ground transitions. Ground normals/slopes/stairs and custom collision remain unverified | Native living-entity status/request path is fallback; validate body volume and stairs, not one ray |
+| Raycasts | D: `Physics.RayWorldIntersection(pos,dir,maxHits,mask,skip...)`; S: native loader inspector performs rays | R: hits returned with distance, position and normal in v0.0.1 and v0.0.2 | Three relevant loader signatures match retail once each, zero in development raw DLL; ABI remains unverified |
 | Shape sweep/overlap | D: `SamplePhysEnvironment` samples sphere environment; no capsule sweep found in inspected Lua surface | Unsupported until actual full-body query/controller path is identified | Native physics sweep may be required. Sphere sampling is not a swept capsule |
 | Camera read/write | D: System view camera getters/FOV setter; actor view-angle, shake and view limits; Action camera functions | Read probes only. Smooth local offset, collision and restoration unverified | Lean needs both body/camera clearance and perception-origin investigation |
 | Animation/root motion | I: Player uses Mannequin controller/ADB; D: `SetMovementControlledByAnimation`, `GetCurrentAnimationState`, resource-hosted animation actions | No forced animation; read-state candidate only | Documented animation control does not establish safe player root motion or asset compatibility |
@@ -55,3 +55,22 @@ Movement Speed Modifiers for NPC Henry and Terrain and Realistic Movement Speed 
 ## Kuttenberg traversal
 
 The retail region is `Data/Levels/kutnohorsko`; tools contain editable level/layer sources and roof-related export profiles. Shipped `LedgeObject.lua` includes legacy Crytek-style vault fields (even `bUsableByMarines`), so its mere presence is not proof of an active player traversal feature. Actual roof/ledge collision, support and landing space have not been tested. First mantle will target a user-confirmed obstacle with a recorded position and repeatable save.
+
+## v0.0.2 runtime and v0.0.3 investigation update
+
+44 v0.0.2 samples verified stamina/health reads, jump/land animation names and five readable movement CVars. AI stance stayed 3 throughout; crouch-like camera displacement is insufficient as a state gate. Physical stats expose mass/gravity/flags; actor GetParams is missing. No movement CVar or actor state was written.
+
+Targeted static inspection now supports actor:IsFlying as a physical-contact query candidate. v0.0.3 captures its transitions at 10 Hz, without accepting it as proven grounding yet. See [Native investigation](NativeInvestigation.md) for exact build, RVAs, source comparison and limits. This offers a supported Lua path worth verifying before adopting native injection. Crouch and lifecycle gates remain unresolved.
+
+
+## v0.0.3 runtime and selected next interface
+
+The contact query returned 26 successful transition observations: 14 false and 12 true, no nil/error. 79 snapshots include jump/land, normal movement and two gameplay generations after loading. One interval advanced simulation time by 1.0 s while async time advanced 6.8348 s during the pause test; this corroborates timer suspension but does not identify every pause mode. No action was active.
+
+The remaining crouch fields were absent; AI stance was still 3. Shipped guard trees use `ActorStateCheck Who="$__player" State="crouch"`; v0.0.4 therefore tests a narrow XGen-to-Lua observer instead of native injection. v0.0.4 retail capture now confirms state changes; see current update below. See [XGen observer](XGenObserver.md).
+
+## Current decision after v0.0.4
+
+47 XGen change records establish real crouch/activity observations; 120 snapshots and 17 successful physical-contact changes add runtime evidence. No collision-aware custom motion has yet been proved. SimulateOnAction reaches a player dispatch that accepts six combat actions and excludes moveforward; it is rejected for locomotion in this build. `IPL_GameData.pak/Libs/Config/defaultProfile.xml` independently confirms moveforward/moveback in movement_y and toggle_crouch, without changing user bindings.
+
+Select **official per-player RPG modifier trial** before native injection: installed crouch perks modify rms, while Lua exposes documented add/remove/query buff methods. v0.0.5 adds one new definition and a fail-closed opt-in experiment. It does not write global movement CVars. Its runtime loading/effect/removal must pass [SpeedTrial](SpeedTrial.md). If unavailable or unsuitable for smooth bursts, investigate a minimal native controller adapter rather than copying the incompatible full loader. Full-body sweep and lean/hanging remain unsupported.

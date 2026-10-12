@@ -44,24 +44,43 @@ def verify_build(c):
 
 
 def build():
+    from observer_patch import ASSET, patch
     c = config()
     lua = Path(c["lua"])
     subprocess.run([str(lua), "tests/probe_test.lua"], cwd=ROOT, check=True)
+    subprocess.run([str(lua), "tests/speed_trial_test.lua"], cwd=ROOT, check=True)
     for p in sorted((ROOT / "src/Data").rglob("*.lua")):
         # loadfile checks syntax without executing engine-dependent code.
         check = "local f,e=loadfile(" + json.dumps(p.as_posix()) + "); assert(f,e)"
         subprocess.run([str(lua), "-e", check], cwd=ROOT, check=True)
     manifest = ROOT / "src/mod.manifest"
     assert ET.parse(manifest).findtext("info/modid") == MOD_ID
+    # Single additive owned definition; never replace a vanilla buff or use an
+    # exclusivity mode that removes unrelated character effects.
+    buff_path = ROOT / "src/Data/Libs/Tables/rpg/buff__kuttenberg_thief.xml"
+    buffs = ET.parse(buff_path).findall("./buffs/buff")
+    assert len(buffs) == 1
+    buff = buffs[0]
+    assert buff.get('buff_id') == 'eacd8708-9dde-43a6-bddb-76d56b9338d1'
+    assert buff.get('is_persistent') == 'false' and buff.get('buff_exclusivity_id') == '1'
+    assert buff.get('implementation') == 'Cpp:BasicTimed' and 0 < float(buff.get('duration')) <= 2
+    assert buff.get('buff_params') == 'rms*1.25'
+    with zipfile.ZipFile(Path(c['game']) / 'Data/Tables.pak') as retail_tables:
+        for name in retail_tables.namelist():
+            if name.startswith('Libs/Tables/rpg/buff') and name.endswith('.xml'):
+                assert buff.get('buff_id').encode() not in retail_tables.read(name), 'Owned buff ID collides with retail'
     out = ROOT / "build" / MOD_ID
     (out / "Data").mkdir(parents=True, exist_ok=True)
     shutil.copy2(manifest, out / "mod.manifest")
     pak = out / "Data/kuttenberg_thief.pak"
+    with zipfile.ZipFile(Path(c['game']) / 'Data/Scripts.pak') as retail:
+        observer_xml = patch(retail.read(ASSET))
     with zipfile.ZipFile(pak, "w", compression=zipfile.ZIP_STORED) as z:
         for p in sorted((ROOT / "src/Data").rglob("*")):
             if p.is_file():
                 info = zipfile.ZipInfo(p.relative_to(ROOT / "src/Data").as_posix(), (2026, 10, 11, 0, 0, 0))
                 z.writestr(info, p.read_bytes())
+        z.writestr(zipfile.ZipInfo(ASSET, (2026, 10, 11, 0, 0, 0)), observer_xml)
     with zipfile.ZipFile(pak) as z:
         assert z.testzip() is None
         assert "Scripts/Mods/kuttenberg_thief.lua" in z.namelist()
@@ -102,11 +121,13 @@ def backup():
 
 
 def install():
+    from observer_patch import check_conflicts
     require_closed()
     c = config()
     verify_build(c)
     source = build()
     mods = Path(c["game"]) / "Mods"
+    check_conflicts(mods, MOD_ID)
     order = mods / "mod_order.txt"
     if order.exists() and MOD_ID not in order.read_text(encoding="utf-8-sig").splitlines():
         raise RuntimeError("Existing mod_order.txt excludes this mod. Review it before changing load order.")
@@ -161,7 +182,10 @@ def collect():
     folder.mkdir(parents=True, exist_ok=True)
     lines = log.read_text(encoding="utf-8", errors="replace").splitlines()
     selected = [s for s in lines if "[KT]" in s or ("[Mod]" in s and MOD_ID in s.lower())
-                or ("[Error]" in s and ("KuttenbergThief" in s or MOD_ID in s))]
+                or ("error" in s.lower() and ("KuttenbergThief" in s or MOD_ID in s
+                    or "ai/player/switch/switch.xml" in s.lower().replace('\\', '/')
+                    or "ActorStateCheck" in s or "kt_speed_trial" in s
+                    or "eacd8708-9dde-43a6-bddb-76d56b9338d1" in s))]
     dest = folder / (timestamp() + "-probe.log")
     dest.write_text("\n".join(selected) + "\n", encoding="utf-8")
     print("COLLECTED:", len(selected), "relevant lines;", dest)

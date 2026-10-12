@@ -4,7 +4,7 @@ if previous and previous.Stop then previous.Stop("reload") end
 if previous and UIAction and type(UIAction.UnregisterEventSystemListener) == "function" then
     pcall(UIAction.UnregisterEventSystemListener, previous, "")
 end
-KuttenbergThief = { version = "0.0.2", intervalMs = 1000, maxSamples = 120,
+KuttenbergThief = { version = "0.0.5", intervalMs = 100, maxSamples = 1200,
     remaining = 0, enabled = true, timer = nil, hadPlayer = false, generation = 0 }
 local M = KuttenbergThief
 
@@ -54,10 +54,48 @@ local function currentPlayer()
     return nil
 end
 
+M.access = {member=member, invoke=invoke, scalar=scalar, currentPlayer=currentPlayer}
+
 local function field(object, name, method, ...)
     local value, status = invoke(object, name, method, ...)
     if status ~= "ok" then return "unknown:" .. status end
     return scalar(value)
+end
+
+local observerKeys = {"crouch", "inAir", "cutscene", "interactiveScene", "dialogue",
+    "horse", "minigame", "actorAnim", "onBed"}
+
+function M.BeginActorObservation()
+    M.pendingActorStates = {}
+end
+
+function M.ObserveActorState(name, value)
+    if not M.pendingActorStates or type(value) ~= "boolean" then return end
+    for _, key in ipairs(observerKeys) do
+        if name == key then M.pendingActorStates[key] = value; return end
+    end
+end
+
+function M.CommitActorObservation()
+    local values = M.pendingActorStates
+    M.pendingActorStates = nil
+    if not values then return end
+    local entries = {}
+    for _, key in ipairs(observerKeys) do
+        if type(values[key]) ~= "boolean" then
+            M.actorStates = nil; M.Log("actor_observer rejected=incomplete"); return
+        end
+        entries[#entries+1] = key .. "=" .. tostring(values[key])
+    end
+    local fingerprint = table.concat(entries, " ")
+    M.actorStates = values
+    M.actorStatesTime = invoke(System, "GetCurrAsyncTime", false)
+    if fingerprint ~= M.lastActorStates and (M.observerLogs or 0) < 300 then
+        M.observerLogs = (M.observerLogs or 0)+1
+        M.lastActorStates = fingerprint
+        M.Log("actor_observer " .. fingerprint .. " async=" .. scalar(M.actorStatesTime)
+            .. " source=xgen verified=false")
+    end
 end
 
 function M.Capabilities()
@@ -70,7 +108,8 @@ function M.Capabilities()
         {"CryAction", CryAction, {"IsGameStarted", "IsGamePaused"}},
         {"ActionMapManager", ActionMapManager, {"EnableActionMap", "EnableActionFilter"}},
         {"player", p, {"GetWorldPos", "GetWorldAngles", "GetVelocity", "GetSpeed", "GetStance", "GetPhysicalStats", "SetVelocity", "AddImpulse", "GetCurAnimation", "OnAction"}},
-        {"actor", member(p, "actor"), {"GetCurrentAnimationState", "GetPhysicalizationProfile", "GetHeadPos", "IsDead", "IsUnconscious", "IsFlying", "IsCarryingCorpse", "SimulateOnAction", "SetMovementControlledByAnimation", "SetMovementRestriction", "SetViewShake"}},
+        {"actor", member(p, "actor"), {"GetCurrentAnimationState", "GetPhysicalizationProfile", "GetHeadPos", "GetStats", "GetParams", "IsDead", "IsUnconscious", "IsFlying", "IsCarryingCorpse", "SimulateOnAction", "SetMovementControlledByAnimation", "SetMovementRestriction", "SetViewShake"}},
+        {"player_interface", member(p, "player"), {"IsSitting", "IsLaying", "GetFlyMode"}},
         {"human", member(p, "human"), {"IsMounted", "IsOnLadder", "IsInDialog", "IsPickpocketing", "IsWeaponDrawn", "SetAnimMotionParam"}},
         {"soul", member(p, "soul"), {"IsInCombatDanger", "IsInTenseCircumstance", "GetState", "GetStamina", "GetHealth"}},
     }
@@ -97,9 +136,15 @@ function M.Snapshot(reason)
         "pos=" .. field(p, "GetWorldPos", true), "angles=" .. field(p, "GetWorldAngles", true),
         "velocity=" .. field(p, "GetVelocity", true), "speed=" .. field(p, "GetSpeed", true),
         "stance_raw=" .. field(p, "GetStance", true),
+        "xgen_crouch_raw=" .. scalar(member(M.actorStates, "crouch")),
+        "xgen_last_async=" .. scalar(M.actorStatesTime),
         "ai_stance_raw=" .. field(AI, "GetStance", false, member(p, "id")),
         "anim=" .. field(a, "GetCurrentAnimationState", true),
         "profile=" .. field(a, "GetPhysicalizationProfile", true),
+        "flying_raw=" .. field(a, "IsFlying", true),
+        "sitting=" .. field(member(p, "player"), "IsSitting", true),
+        "laying=" .. field(member(p, "player"), "IsLaying", true),
+        "fly_mode=" .. field(member(p, "player"), "GetFlyMode", true),
         "mounted=" .. field(h, "IsMounted", true), "ladder=" .. field(h, "IsOnLadder", true),
         "dialog=" .. field(h, "IsInDialog", true), "weapon=" .. field(h, "IsWeaponDrawn", true),
         "dead=" .. field(a, "IsDead", true), "unconscious=" .. field(a, "IsUnconscious", true),
@@ -137,8 +182,19 @@ function M.Detail()
     logTable("physical_stats", stats, status)
     local params, ps = invoke(member(p, "actor"), "GetParams", true)
     logTable("actor_params", params, ps)
+    local actorStats, ast = invoke(member(p, "actor"), "GetStats", true)
+    logTable("actor_stats", actorStats, ast)
+    -- These are historical script-table candidates, not trusted crouch sources.
+    for _, key in ipairs({"stats", "actorStats"}) do
+        local value = member(p, key)
+        for _, state in ipairs({"stance", "inAir", "onGround", "bFlying", "bSneaking"}) do
+            M.Log("table_state path=" .. key .. "." .. state .. " value=" .. scalar(member(value, state)))
+        end
+    end
     M.Log("detail=stance ai=" .. field(AI, "GetStance", false, member(p, "id"))
         .. " STANCE_CROUCH=" .. scalar(STANCE_CROUCH) .. " STANCE_STAND=" .. scalar(STANCE_STAND)
+        .. " E_ACTORSTANCE_CROUCH=" .. scalar(E_ACTORSTANCE_CROUCH)
+        .. " E_ACTORSTANCE_NORMAL=" .. scalar(E_ACTORSTANCE_NORMAL)
         .. " bSneaking=" .. scalar(member(member(p, "actor"), "bSneaking")))
     for _, name in ipairs({"pl_movement.speedScale", "pl_movement.crouch_SpeedScale",
         "pl_movement.sprint_SpeedScale", "wh_actor_MovementSpeedMultEnabled",
@@ -147,6 +203,21 @@ function M.Detail()
     end
     M.Log("detail=runtime devmode=" .. field(System, "IsDevModeEnable", false)
         .. " game_started=" .. field(CryAction, "IsGameStarted", false))
+end
+
+function M.ContactSample(p)
+    local value, status = invoke(member(p, "actor"), "IsFlying", true)
+    local key = status .. ":" .. scalar(value)
+    -- 10 Hz observation, logging only changes. Never equate nil/error with grounded.
+    if key ~= M.lastFlight then
+        M.lastFlight = key
+        M.Log("contact_change flying_raw=" .. scalar(value) .. " status=" .. status
+            .. " time=" .. field(System, "GetCurrTime", false)
+            .. " async=" .. field(System, "GetCurrAsyncTime", false)
+            .. " pos=" .. field(p, "GetWorldPos", true)
+            .. " anim=" .. field(member(p, "actor"), "GetCurrentAnimationState", true)
+            .. " grounded=unverified")
+    end
 end
 
 function M.Rays()
@@ -171,6 +242,7 @@ function M.Rays()
 end
 
 function M.Stop(reason)
+    if M.speedTrial then M.speedTrial.Cancel(reason or "command") end
     M.remaining = 0
     if M.timer then invoke(Script, "KillTimer", false, M.timer); M.timer = nil end
     M.Log("watch_stopped reason=" .. (reason or "command"))
@@ -181,17 +253,20 @@ function M.Tick()
     local p = currentPlayer()
     if p and not M.hadPlayer then
         M.hadPlayer = true; M.generation = M.generation + 1
+        M.lastFlight = nil
         M.Capabilities()
         M.Detail()
         M.Rays()
         M.remaining = M.maxSamples
-        M.Log("player_available watch_samples=" .. M.remaining)
+        M.Log("player_available watch_ticks=" .. M.remaining)
     elseif not p and M.hadPlayer then
         M.hadPlayer = false; M.remaining = 0
         M.Log("player_lost reason=load_or_transition")
     end
     if p and M.remaining > 0 then
-        M.Snapshot("watch"); M.remaining = M.remaining - 1
+        M.ContactSample(p)
+        if (M.maxSamples - M.remaining) % 10 == 0 then M.Snapshot("watch") end
+        M.remaining = M.remaining - 1
         if M.remaining == 0 then M.Log("watch_complete") end
     end
     if M.remaining > 0 or not M.hadPlayer then M.Schedule() end
@@ -209,19 +284,22 @@ function M.Schedule()
 end
 
 function M.Watch()
-    M.Stop("restart"); M.remaining = M.maxSamples; M.Schedule()
-    M.Log("watch_started max_samples=" .. M.maxSamples)
+    M.Stop("restart"); M.lastFlight = nil; M.remaining = M.maxSamples; M.Schedule()
+    M.Log("watch_started max_ticks=" .. M.maxSamples .. " interval_ms=" .. M.intervalMs)
 end
 
 function M.OnGameplayStarted()
+    if M.speedTrial then M.speedTrial.Cancel("gameplay_started") end
     M.hadPlayer = false
+    M.actorStates = nil; M.pendingActorStates = nil; M.actorStatesTime = nil
+    M.lastActorStates = nil; M.observerLogs = 0
     M.Watch()
 end
 
-M.Log("boot version=" .. M.version .. " mode=read_only movement_enabled=false")
+M.Log("boot version=" .. M.version .. " mode=automatic_read_only movement_enabled=false")
 local commands = {
     {"kt_probe", "KuttenbergThief.Capabilities(); KuttenbergThief.Snapshot('manual')", "KT: inspect available API and player state"},
-    {"kt_watch", "KuttenbergThief.Watch()", "KT: log up to 120 player samples"},
+    {"kt_watch", "KuttenbergThief.Watch()", "KT: observe contact at 10 Hz for 120s; state summaries at 1 Hz"},
     {"kt_stop", "KuttenbergThief.Stop('command')", "KT: stop sample timer"},
     {"kt_mark", "KuttenbergThief.Snapshot('MARK')", "KT: insert a player-state marker"},
     {"kt_rays", "KuttenbergThief.Rays()", "KT: read-only 3m camera ray; no body-clearance claim"},

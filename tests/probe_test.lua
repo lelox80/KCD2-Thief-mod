@@ -19,7 +19,7 @@ local function step()
     local id, fn = next(timers); assert(id, 'expected timer'); timers[id]=nil; fn()
 end
 dofile('src/Data/Scripts/KuttenbergThief/Probe.lua')
-assert(contains('boot version=0.0.2'))
+assert(contains('boot version=0.0.5'))
 step(); assert(count('sample reason=watch')==0)
 local writes = 0
 player = {id=1, GetWorldPos=function() return {x=1,y=2,z=3} end,
@@ -34,6 +34,14 @@ assert(contains('ai_stance_raw=1.0000')); assert(contains('stamina=100.0000'))
 assert(contains('detail=physical_stats status=ok gravity=(0.0000,0.0000,-13.0000) | mass=80.0000'))
 assert(contains('stance_raw=unknown:missing'))
 assert(contains('grounded=unknown')); assert(writes==0)
+local flight = false
+player.actor.IsFlying=function() return flight end
+step(); assert(contains('contact_change flying_raw=false status=ok'))
+local contactCount=count('contact_change')
+step(); assert(count('contact_change')==contactCount)
+flight=true; step(); assert(contains('contact_change flying_raw=true status=ok'))
+player.actor.IsFlying=function() error('transition') end
+step(); assert(contains('contact_change flying_raw=unknown status=error'))
 player=nil; step(); assert(contains('player_lost'))
 player={id=2,GetWorldPos=function() return {x=9,y=8,z=7} end}
 step(); assert(contains('generation=2')); assert(contains('pos=(9.0000,8.0000,7.0000)'))
@@ -50,5 +58,19 @@ KuttenbergThief.Rays(); assert(contains('ray status=ok')); assert(writes==0)
 KuttenbergThief.Watch(); local stale = timers[KuttenbergThief.timer]
 dofile('src/Data/Scripts/KuttenbergThief/Probe.lua')
 local before=count('sample reason=watch'); stale(); assert(count('sample reason=watch')==before)
+KuttenbergThief.Stop('done')
+KuttenbergThief.BeginActorObservation()
+KuttenbergThief.ObserveActorState('crouch',true)
+KuttenbergThief.CommitActorObservation()
+assert(KuttenbergThief.actorStates==nil)
+KuttenbergThief.BeginActorObservation()
+for _,key in ipairs({'crouch','inAir','cutscene','interactiveScene','dialogue','horse','minigame','actorAnim','onBed'}) do
+    KuttenbergThief.ObserveActorState(key,false)
+end
+KuttenbergThief.CommitActorObservation()
+assert(KuttenbergThief.actorStates.crouch==false)
+assert(contains('actor_observer crouch=false'))
+KuttenbergThief.OnGameplayStarted()
+assert(KuttenbergThief.actorStates==nil)
 KuttenbergThief.Stop('done')
 print('PASS: absent player, missing APIs, getter errors, entity replacement, bounded logging, stop/reload, ray contract; no movement writes')

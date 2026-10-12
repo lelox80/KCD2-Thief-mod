@@ -2,7 +2,7 @@
 
 ## M0 — code loads and logs player state
 
-Prerequisite: closed game, verified save backup, installed package hashes, retail 1.5.6. Launch normal retail through Steam; load a Kuttenberg save. Expect `[KT] boot version=0.0.1`, capability rows and `player_available`, followed by at most 120 one-second samples. Walk, stand, crouch, crouch-walk and turn; compare positions/velocity/raw stance. Pause/resume and reload the same save; record observed timer/event behavior. Optional `kt_probe`, `kt_mark`, `kt_rays`, `kt_watch`, `kt_stop`.
+Prerequisite: closed game, verified save backup, installed package hashes, retail 1.5.6. Launch normal retail through Steam; load a Kuttenberg save. Expect `[KT] boot version=0.0.4`, capability rows and `player_available`, followed by at most 120 one-second samples. Walk, stand, crouch, crouch-walk and turn; compare positions/velocity/raw stance. Pause/resume and reload the same save; record observed timer/event behavior. Optional `kt_probe`, `kt_mark`, `kt_rays`, `kt_watch`, `kt_stop`.
 
 Collect with `python tools/project.py collect`. Confirm no Lua errors, meaningful player position, missing fields explicitly unknown, and game controls unaffected. Note if console commands are unavailable. A successful package install is not a runtime pass. GUI labels or method presence do not prove function semantics.
 
@@ -44,3 +44,18 @@ Stealth: fixed equipment/time/weather/guard/save baselines; light/dark, quiet/lo
 ## Save recovery
 
 Backups are `.local/backups/<UTC timestamp>/kcd2-saves.zip` with SHA-256 manifest. Close game and Steam before manual restoration. Preserve the current save directory separately, extract a verified backup into the configured save directory and resolve Steam Cloud conflicts deliberately. Restoration is not automatic and has not been tested on the live profile.
+
+## M0.3 contact test (read only)
+
+After loading the existing Kuttenberg save, stand on clear ground for five seconds, jump three times with a pause between landings, crouch and walk for five seconds, stand up, and use an ordinary stair if nearby. Do not deliberately jump from a dangerous ledge. Pause for five seconds and resume; reload the same save after the initial capture. All normal game controls stay in charge.
+
+Expected diagnostic result, not yet observed: IsFlying=false while supported, true during a jump, false after landing; no unknown/error values during ordinary locomotion. Logs include raw values, position, simulation/async times and animation at transitions. The probe does not cause motion. Check whether gameplay-start capture restarts after loading and whether pause produces an async-time gap. These observations do not alone prove safe action interruption. `kt_watch` starts another bounded capture if necessary; `kt_stop` stops it.
+
+
+## M0.4 XGen state bridge
+
+Load the backed-up existing save; toggle crouch three times, holding each state for 2–3 seconds. Check observer and summary fields agree, complete batches arrive at about 100 ms intervals, and timestamps stay fresh while active. Pause/resume, then reload the same save; old observations must clear. Review errors involving player/switch/switch.xml, ActorStateCheck and ExecuteLua. Confirm ordinary movement/interactions behave normally. Avoid creating a new permanent progress save until serialization/removal compatibility is assessed. The tests validate observation only, not motion or stealth changes.
+
+## M1a — v0.0.5 bounded speed comparison
+
+Follow [SpeedTrial](SpeedTrial.md) for the exact console sequence, expected behavior, unknown gates and cancellation limits. Capture open-ground before/boost/after samples, direct wall obstruction, standing-up cancellation, pause and same-save load. Confirm the modifier's table/API loading and removal separately from actual speed and collision. A successful automated fixture is not a retail test. Keep the full swoop matrix (stairs, slopes, narrow passage, ledge, repeated activation, frame rates, pause/load, stamina/noise/damage) outstanding until this primitive is proved.

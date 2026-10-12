@@ -29,3 +29,11 @@ Record table: trial, build, FPS, start/end frame, travel/scale method, repeat in
 ## Thief-style stealth target
 
 Measure the reference's light exposure, movement/surface noise, crouch effects, attention/suspicion/recovery, search response and feedback. Then compare KCD2 at controlled baseline positions. Define which host perception inputs can be modified while retaining NPC/crime/save consistency. Noise and stamina costs during swoop, fall damage, guard reactions to rooftop movement and lean visibility are explicit acceptance items. Stealth remains KCD2 vanilla during M0 and all movement feasibility probes.
+
+## Current implementation boundary
+
+M0.4 provides state observation only. No swoop distance/duration has been tuned and no collision-aware movement action is implemented. IsFlying transitions have retail evidence; crouch/activity values are being tested through the generated XGen observer. The design above remains an acceptance specification, not completed behavior.
+
+## v0.0.5 comparison before swoop
+
+The first movement experiment leaves ordinary direction/input with KCD2 and briefly applies a player-only rms modifier. Arm 3 s, baseline 2 s, boost <=1 s at a diagnostic 1.25 multiplier, recovery 2 s, cooldown 2 s. Timing/guards are constants in SpeedTrial.lua; the owned buff table uses a build-pinned diagnostic multiplier of 1.25. These are not Thief measurements; full swoop tuning is still to be implemented. No camera change, automatic displacement or smooth envelope yet. The full crouched swoop criteria above remain unmet until comparison/collision/cancellation pass and the actual burst controller is implemented. [Procedure](SpeedTrial.md).

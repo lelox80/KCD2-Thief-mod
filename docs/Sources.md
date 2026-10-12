@@ -35,3 +35,7 @@ Loader implementation: `kcd2_address.hpp` defaults scanning to WHGame.dll. `kcd2
 ## Reproducibility
 
 `.local/evidence/` holds binary inventory, pinned commits, pattern counts, official article snapshots and relevant runtime extracts. `.local/references/` holds inspected public source checkouts. Initial installed-data scratch extraction was under the chat's ignored working area `C:\Users\leonh\Documents\Codex\2026-10-11\las\work\private`; it is not build input. A fresh investigator can re-read the named archives in place.
+
+## Additional installed evidence, 2026-10-12
+
+`IPL_GameData.pak/Libs/Config/defaultProfile.xml` and `keybindSuperactions.xml` provide actual movement action names. `Tables.pak/Libs/Tables/rpg/buff__perk.xml` contains the Cpp:Crouch rms multipliers; buff.xml contains timed quest movement effects; buff_lifetime.xml and buff_exclusivity.xml define ShortTerm and ID exclusivity. `script_bind_2025_01_14` documents Soul AddBuff/RemoveAllBuffsByGuid/HasBuffDebug/GetDerivedStat. These establish the design of the next experiment; v0.0.5 execution is not yet retail verified. No original table contents are committed.
