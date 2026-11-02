@@ -12,3 +12,8 @@ __pycache__/
 *.obj
 *.pdb
 *.log
+# Runtime captures stay local, including text logs with non-.log extensions.
+/logs/
+# REA's Ghidra launcher can choose a dot-free ancestor for an ephemeral project.
+# Keep any such transient import excluded until the provider removes it on close.
+/rea-ghidra-*/

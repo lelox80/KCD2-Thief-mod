@@ -1,0 +1,18 @@
+<UIElements name="KuttenbergThief">
+  <UIElement name="KTStealth" render_lockless="0" mouseevents="0" keyevents="0" cursor="0" controller_input="0" events_exclusive="0" lazy_update="0">
+    <GFx file="KTStealth.swf" layer="26">
+      <Constraints>
+        <Align mode="dynamic" halign="center" valign="bottom" scale="1" max="0" />
+      </Constraints>
+    </GFx>
+    <functions>
+      <function name="Update" funcname="kt_update">
+        <param name="visibilityAmount" type="float" />
+        <param name="visibilityKnown" type="bool" />
+      </function>
+    </functions>
+    <variables>
+      <variable name="Version" varname="_root.version" />
+    </variables>
+  </UIElement>
+</UIElements>

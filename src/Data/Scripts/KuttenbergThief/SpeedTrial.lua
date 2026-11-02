@@ -1,5 +1,9 @@
 -- Opt-in M1 experiment, not swoop. KCD2 retains input, physics and animation.
 -- One owned RPG buff; no position/velocity/input/CVar/camera writes.
+-- Historical experiment, excluded from the native-only runtime package. An
+-- explicit source load permanently poisons native permission for this process.
+_KTLegacySpeedTrialSeen=true
+if type(_KTMovementSession)=="table" then _KTMovementSession.clean=false end
 local M = KuttenbergThief
 local A = M.access
 local get, call, fmt = A.member, A.invoke, A.scalar

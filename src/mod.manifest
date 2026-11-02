@@ -1,10 +1,10 @@
 <kcd_mod>
   <info>
-    <name>Kuttenberg Thief - Capability Probe</name>
+    <name>Kuttenberg Thief - Ledge Investigation</name>
     <modid>kuttenberg_thief</modid>
-    <description>Retail diagnostics and opt-in bounded crouched speed experiment. Swoop and stealth replacement are not implemented.</description>
+    <description>Native request tracing and bounded compound-wall geometry diagnostics. Explicit native attachment; added climbs remain disabled.</description>
     <author>Local KCD2 Thief project</author>
-    <version>0.0.5</version>
+    <version>0.0.21</version>
     <created_on>2026-10-11</created_on>
   </info>
   <supports><version>1.5.6</version></supports>

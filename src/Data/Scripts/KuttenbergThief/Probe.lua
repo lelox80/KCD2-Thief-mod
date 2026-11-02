@@ -4,7 +4,7 @@ if previous and previous.Stop then previous.Stop("reload") end
 if previous and UIAction and type(UIAction.UnregisterEventSystemListener) == "function" then
     pcall(UIAction.UnregisterEventSystemListener, previous, "")
 end
-KuttenbergThief = { version = "0.0.5", intervalMs = 100, maxSamples = 1200,
+KuttenbergThief = { version = "0.0.21", intervalMs = 100, maxSamples = 1200, actorStatesSequence = 0,
     remaining = 0, enabled = true, timer = nil, hadPlayer = false, generation = 0 }
 local M = KuttenbergThief
 
@@ -90,6 +90,7 @@ function M.CommitActorObservation()
     local fingerprint = table.concat(entries, " ")
     M.actorStates = values
     M.actorStatesTime = invoke(System, "GetCurrAsyncTime", false)
+    M.actorStatesSequence = (M.actorStatesSequence or 0) + 1
     if fingerprint ~= M.lastActorStates and (M.observerLogs or 0) < 300 then
         M.observerLogs = (M.observerLogs or 0)+1
         M.lastActorStates = fingerprint
@@ -242,6 +243,13 @@ function M.Rays()
 end
 
 function M.Stop(reason)
+    local invalidateHud=member(member(M,"stealthHud"),"Invalidate")
+    if type(invalidateHud)=="function" then pcall(invalidateHud,reason or "command") end
+    local stopTerrain=member(member(M,"terrainProbe"),"Stop")
+    if type(stopTerrain)=="function" then pcall(stopTerrain,reason or "command") end
+    local stopLedge=member(member(M,"ledgeProbe"),"Stop")
+    if type(stopLedge)=="function" then pcall(stopLedge,reason or "command") end
+    if M.nativeBridge then M.nativeBridge.Invalidate(reason or "command") end
     if M.speedTrial then M.speedTrial.Cancel(reason or "command") end
     M.remaining = 0
     if M.timer then invoke(Script, "KillTimer", false, M.timer); M.timer = nil end
@@ -289,9 +297,10 @@ function M.Watch()
 end
 
 function M.OnGameplayStarted()
+    if M.nativeBridge then M.nativeBridge.Invalidate("gameplay_started") end
     if M.speedTrial then M.speedTrial.Cancel("gameplay_started") end
     M.hadPlayer = false
-    M.actorStates = nil; M.pendingActorStates = nil; M.actorStatesTime = nil
+    M.actorStates = nil; M.pendingActorStates = nil; M.actorStatesTime = nil; M.actorStatesSequence = 0
     M.lastActorStates = nil; M.observerLogs = 0
     M.Watch()
 end

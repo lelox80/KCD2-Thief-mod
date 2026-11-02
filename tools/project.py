@@ -45,10 +45,25 @@ def verify_build(c):
 
 def build():
     from observer_patch import ASSET, patch
+    from stealth_movie import build as build_movie
     c = config()
     lua = Path(c["lua"])
     subprocess.run([str(lua), "tests/probe_test.lua"], cwd=ROOT, check=True)
     subprocess.run([str(lua), "tests/speed_trial_test.lua"], cwd=ROOT, check=True)
+    subprocess.run([str(lua), "tests/native_bridge_test.lua"], cwd=ROOT, check=True)
+    subprocess.run([str(lua), "tests/native_session_test.lua"], cwd=ROOT, check=True)
+    subprocess.run([str(lua), "tests/terrain_probe_test.lua"], cwd=ROOT, check=True)
+    subprocess.run([str(lua), "tests/stealth_hud_test.lua"], cwd=ROOT, check=True)
+    subprocess.run([str(lua), "tests/ledge_probe_test.lua"], cwd=ROOT, check=True)
+    float_lua = ROOT / '.local/tools/lua-5.1.5-float32/lua-float32.exe'
+    if not float_lua.is_file():
+        raise RuntimeError('Retail float32 Lua fixture runtime is required for this bridge package')
+    subprocess.run([str(float_lua), '-e', 'assert(16777216+1==16777216, "Expected retail float32 number model")'], cwd=ROOT, check=True)
+    subprocess.run([str(float_lua), "tests/native_bridge_test.lua"], cwd=ROOT, check=True)
+    subprocess.run([str(float_lua), "tests/native_session_test.lua"], cwd=ROOT, check=True)
+    subprocess.run([str(float_lua), "tests/terrain_probe_test.lua"], cwd=ROOT, check=True)
+    subprocess.run([str(float_lua), "tests/stealth_hud_test.lua"], cwd=ROOT, check=True)
+    subprocess.run([str(float_lua), "tests/ledge_probe_test.lua"], cwd=ROOT, check=True)
     for p in sorted((ROOT / "src/Data").rglob("*.lua")):
         # loadfile checks syntax without executing engine-dependent code.
         check = "local f,e=loadfile(" + json.dumps(p.as_posix()) + "); assert(f,e)"
@@ -75,15 +90,26 @@ def build():
     pak = out / "Data/kuttenberg_thief.pak"
     with zipfile.ZipFile(Path(c['game']) / 'Data/Scripts.pak') as retail:
         observer_xml = patch(retail.read(ASSET))
+    stealth_movie = build_movie()
+    # Preserve historical source/tests while excluding the legacy AddBuff route.
+    excluded = {"Scripts/KuttenbergThief/SpeedTrial.lua", "Libs/Tables/rpg/buff__kuttenberg_thief.xml"}
     with zipfile.ZipFile(pak, "w", compression=zipfile.ZIP_STORED) as z:
         for p in sorted((ROOT / "src/Data").rglob("*")):
-            if p.is_file():
+            if p.is_file() and p.relative_to(ROOT / "src/Data").as_posix() not in excluded:
                 info = zipfile.ZipInfo(p.relative_to(ROOT / "src/Data").as_posix(), (2026, 10, 11, 0, 0, 0))
                 z.writestr(info, p.read_bytes())
         z.writestr(zipfile.ZipInfo(ASSET, (2026, 10, 11, 0, 0, 0)), observer_xml)
+        z.writestr(zipfile.ZipInfo('Libs/UI/KTStealth.swf', (2026, 10, 11, 0, 0, 0)), stealth_movie.read_bytes())
     with zipfile.ZipFile(pak) as z:
         assert z.testzip() is None
         assert "Scripts/Mods/kuttenberg_thief.lua" in z.namelist()
+        assert "Scripts/KuttenbergThief/NativeBridge.lua" in z.namelist()
+        assert "Scripts/KuttenbergThief/TerrainProbe.lua" in z.namelist()
+        assert "Scripts/KuttenbergThief/StealthHud.lua" in z.namelist()
+        assert "Scripts/KuttenbergThief/LedgeProbe.lua" in z.namelist()
+        assert 'Libs/UI/UIElements/KTStealth.xml' in z.namelist()
+        assert z.read('Libs/UI/KTStealth.swf') == stealth_movie.read_bytes()
+        assert not excluded.intersection(z.namelist()), 'Legacy movement trial must not be packaged'
         assert all(i.compress_type == zipfile.ZIP_STORED for i in z.infolist())
     result = {p.relative_to(out).as_posix(): digest(p) for p in out.rglob("*") if p.is_file()}
     (ROOT / "build/package-hashes.json").write_text(json.dumps(result, indent=2))

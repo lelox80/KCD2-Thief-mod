@@ -1,0 +1,25 @@
+# Native swoop prototype: execution plan
+
+Authorized 2026-10-17: set up REA, investigate Thief's swoop and the KCD2 movement interface, and work toward a playable prototype. The research route is selected; runtime compatibility still requires evidence.
+
+| Question | Evidence needed | Current state |
+|---|---|---|
+| Can REA inspect the installed targets? | Pinned toolchain, working provider, target identity and a successful focused analysis | Installed and registered in Codex; doctor passed; focused derived-container analysis succeeded; full imports timed out |
+| What is Thief's actual swoop behavior? | Dash settings/defaults, state/caller trace, timing/steering/cancellation dependencies | Authored hero binding/settings, active state, steering and Hermite primitive recovered; collision/cancel and runtime measurements remain |
+| Which KCD2 interface can own a movement action? | Native update/input/lifecycle observations, controller request or complete collision queries, supported-build checks | Player request path/layout and fresh script-thread state bridge verified; bounded temporary x/y substitution retains KCD2 collision/gravity/controller ownership |
+| Can a reconstructed action be tested independently? | Small movement core and deterministic fixtures based on recovered evidence | Hermite primitive and bounded adapter/core have deterministic coverage; seven native fixtures plus double/float32 Lua and packet/terrain analysis checks pass |
+| Does it work inside KCD2? | Opt-in action, wall contact, control recovery and lifecycle cancellation in retail | F8 clear-ground/wall/control/durability baseline passed; v0.0.12 paired gentle-slope, short-stair and low-step trials passed on tested routes, with complete audited writes and restored hooks |
+
+Current work is v0.0.13, a passive visibility/noisiness/footstep HUD around the frozen movement implementation. It is built, installed and observed in retail: the player confirmed visible changing values and lower signed visibility at night. All five getter values were valid in120 bounded samples, and the entirely dry session made no movement writes. Exact clock-refusal limitations remain in [feedback results](StealthResults.md). Compact calibrated presentation and real creeping/surface-noise behavior are next. The preceding movement tests remain accepted within scope. See [Stealth](Stealth.md), [terrain results](TerrainResults.md), [STATUS](../STATUS.md) and [controls](PrototypeControls.md).
+
+The user accepted the working swoop and selected **shadows and sound** as the next priority on October19. Freeze the tested movement baseline; routine traversal variants are no longer the critical path. Investigate the host's real illumination, visibility and emitted-noise inputs, then add readable player feedback and narrowly justified changes to those systems. Donor trajectory/steering/camera fidelity remains separate; high-drop, gap and hanging actions are unsupported.
+
+Use automated bridge/number-model/lifecycle regression checks for implementation changes. Ask for one combined gameplay session after a meaningful feature build, focusing on feel and actual guard response. Repeat dedicated movement checks only when the relevant writer, gate or integration behavior changes. Preserve native-only provenance, exact ASCII masks across float32 Lua and independent command/frame clock histories; no new movement behavior is enabled by the stealth work.
+
+Proprietary binaries, database snapshots, pseudocode and detailed private native outputs remain in ignored `.local/`. Tracked source contains our adapters, tests and evidence summaries. Public third-party scripts are inspected before use. No original executable replacement, publication or push is part of this work.
+
+Investigation owners use distinct files: `ThiefSwoopFindings.md`, `KCD2MovementInterface.md`, and this shared execution plan. Record written, built, installed, running-game verified and user-confirmed separately.
+
+Historical read-only checkpoint: [native capture results](NativeProbe.md). A fresh 237-file save backup was verified. After the Computer Use helper failed, the user opened the game and completed the requested sequence. The probe captured 3,673 requests on nine threads, with zero drops/read failures, and stopped with original instructions independently verified restored. User reported normal movement. The later bridge and bounded writer milestones above supersede this checkpoint; donor collision/cancel details remain open.
+
+The implemented bridge uses the unique retail script-update pattern at RVA `0xa26b94`, also used by the inspected KCD2ModLoader source, with verified thread/ordering for a small Lua-to-native state publisher. Lua is never called from actor worker threads. Only current player/generation, high-resolution freshness, verified contact/stance/activity and ownership gates are published; unknown or expired data refuses/cancels the action. This remains a small adapter without the reference loader's unrelated hooks.

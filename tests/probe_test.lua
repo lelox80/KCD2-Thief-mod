@@ -19,7 +19,7 @@ local function step()
     local id, fn = next(timers); assert(id, 'expected timer'); timers[id]=nil; fn()
 end
 dofile('src/Data/Scripts/KuttenbergThief/Probe.lua')
-assert(contains('boot version=0.0.5'))
+assert(contains('boot version='..KuttenbergThief.version))
 step(); assert(count('sample reason=watch')==0)
 local writes = 0
 player = {id=1, GetWorldPos=function() return {x=1,y=2,z=3} end,

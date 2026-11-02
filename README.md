@@ -2,7 +2,17 @@
 
 Thief (2014)-inspired movement and stealth inside Kingdom Come: Deliverance II.
 
-**Current source: v0.0.5, state diagnostics plus an opt-in speed comparison.** Automatic startup only observes state. `kt_speed_test` can temporarily raise Henry's normal crouched movement speed; this is an experiment, not the swoop. Stealth, camera and animation control remain with KCD2. See STATUS for installation/runtime evidence.
+
+
+**v0.0.21: ledge geometry verified in retail; added climbs remain disabled.** The completed October22 wall scan found a1.015720m `candidate_hint` in44 rays, including the required wall-profile, landing and headroom samples. The observation-only bridge made zero movement writes and recorded shutdown. Its789 clock publication refusals all preceded the test instructions; the raw warning remains documented. A sampled candidate does not establish whole-body clearance, native guide registration or an added climb. [Runtime results](docs/LedgeRuntimeResults.md).
+
+Progress checked November2: the rebuilt package matches the installed v0.0.21 manifest/PAK hashes. All26 Python tests, double/retail-float32 Lua checks, seven native bridge/core fixtures and admission-hook/conformance checks pass. No game process is running and no new playtest was performed. Next work is native guide loading/registration, followed by whole-body clearance and host action ownership; no repeated wall scan or ordinary Jump baseline is needed. [Status](STATUS.md), [plan](docs/LedgeClimbing.md), [test](docs/TestPlan.md), [native guide route](docs/KCD2HigherClimbRoute.md).
+
+**HUD introduced in v0.0.15:** original Thief light-gem art beside the bottom health HUD, with aspect-preserving scaling and no visible noise meter. Noise remains in background diagnostics. Corrected in-game proportions/placement still await a brief visual check; guard/sound behavior is unchanged. The proprietary art and generated package stay local; this repository contains the adapter and conversion tooling. [Art provenance and build](docs/HudAssets.md), [feedback results](docs/StealthResults.md), [controls](docs/Stealth.md).
+
+The preserved v0.0.12 movement baseline passed clear-ground, ordinary-wall, gentle-slope, short-stair and low-step checks. Its complete audit retains all1,011 writes with no unsafe/vertical writes, drops or bound violations, with the exact clock-refusal/timeout limitations documented. Further movement microtests are off the critical path. [Terrain results](docs/TerrainResults.md); [F8 controls](docs/PrototypeControls.md).
+
+The native investigation adds [REA setup](docs/REASetup.md), [recovered Thief swoop behavior](docs/ThiefSwoopFindings.md), a [retail movement-interface trace](docs/KCD2MovementInterface.md), and retail observation captures. The first full state bridge published 4,004 snapshots and matched 3,075 player requests without changing movement; its required buff getter was unavailable, so v0.0.7 isolates the native experiment. The independent donor Hermite primitive remains separate from the conservative host request pulse.
 
 Target installation: Steam retail **1.5.6 / build 23914554**. Modding tools **1.5.5 / build 22816715** are a separate, currently incomplete development workspace. See [assessment](docs/CapabilityAssessment.md), [environment](docs/Environment.md) and [status](STATUS.md).
 
@@ -18,15 +28,17 @@ python tools/project.py uninstall
 python -m unittest discover -s tests -p 'test_*.py'
 ```
 
-Build requires Python 3.12 and a Lua 5.1 interpreter, configured in ignored `.local/environment.json`. The local interpreter was built from official Lua 5.1.5 source using installed MSVC. No pip packages, native loader or engine recompile are needed. [Environment](docs/Environment.md) records paths and hashes.
+The Lua package build requires Python 3.12 and a Lua 5.1 interpreter, configured in ignored `.local/environment.json`. The local interpreter was built from official Lua5.1.5 source using installed MSVC. Basic diagnostics load without a native loader; the current per-frame stealth HUD and F8 movement use the explicitly attached native bridge. It is not automatically deployed by `project.py`. [Environment](docs/Environment.md) records paths and hashes.
 
-Build runs diagnostic regression checks and Lua syntax checks, validates the one additive, nonpersistent buff definition, then creates `build/kuttenberg_thief/Data/kuttenberg_thief.pak` as an uncompressed ZIP. It packages our Lua and a generated observation branch in the exact installed player behavior tree. Original assets remain outside tracked source; the source asset hash is required and other mods overriding the same asset are rejected. See [observer design and limitations](docs/XGenObserver.md). The official entry is `Scripts/Mods/kuttenberg_thief.lua`.
+Build runs diagnostic, bridge, session-isolation and historical speed-trial regression checks plus Lua syntax checks, then creates `build/kuttenberg_thief/Data/kuttenberg_thief.pak` as an uncompressed ZIP. The historical speed script/buff are validated as source but explicitly excluded from the package. It packages our Lua and a generated observation branch in the exact installed player behavior tree. Original assets remain outside tracked source; the source asset hash is required and other mods overriding the same asset are rejected. See [observer design and limitations](docs/XGenObserver.md). The official entry is `Scripts/Mods/kuttenberg_thief.lua`.
 
 Install checks the inspected retail binary hashes, requires the game closed, creates a complete SHA-256-verified save backup under `.local/backups/`, then adds `Mods/kuttenberg_thief`. Existing files with different hashes cause an explicit stop. An existing `mod_order.txt` that excludes this mod also causes a stop, preserving its order. Run an elevated shell if Windows denies writing to Program Files.
 
 Uninstall verifies the install receipt and every owned file, archives the mod under `.local/backups/`, then removes only these unchanged files. Modified/unknown files cause a stop. For updates, close the game, uninstall the owned version, rebuild and install.
 
-## First in-game check
+## Historical diagnostic check
+
+The current combined stealth check is in [Stealth](docs/Stealth.md). The older read-only diagnostic procedure below is retained for regression use, not another outstanding manual test.
 
 1. After installation, launch normal KCD2 from Steam. No launch-option change is required for the automatic diagnostic.
 2. Load a Kuttenberg save. The mod automatically observes contact at 10 Hz and records up to 120 state summaries, roughly one per second. Walk, stop, crouch, crouch-walk, turn, pause/resume, then load the same save again.
@@ -54,8 +66,8 @@ Read-only contact sampling at 10 Hz, with state summaries at 1 Hz and contact-ch
 
 Adds a generated XGen observer for actual crouch and activity states. Read [XGenObserver](docs/XGenObserver.md) before testing. Load the existing save, toggle crouch three times, pause/resume and reload that save. Expected log: `actor_observer crouch=false`, then `true`, then `false`; two crouch on/off cycles and other activity transitions are now visible in the v0.0.4 retail log. No swoop key exists yet. Summarize a collected log with `python tools/analyze_probe.py <log-path>`.
 
-### Speed comparison v0.0.5
+### Historical speed comparison v0.0.5
 
-After installation, load an existing backed-up save in Kuttenberg. On level open ground, crouch with weapon put away. Enter `kt_speed_test`, close the console, then hold your normal forward key for about eight seconds. The experiment waits 3 seconds, records 2 seconds of baseline, applies its speed effect for at most 1 second, removes it and records 2 seconds of recovery. Remain crouched throughout. A refusal is logged if any gate or required API is unknown.
+This experiment is excluded from the current native-only package because retail lacks the documented buff confirmation getter. Source/tests and the [historical procedure](docs/SpeedTrial.md) are retained. Use the [current bridge procedure](docs/StateBridgePrototype.md) for testing.
 
-Repeat facing a wall, then test cancellation by standing up and by pausing. `kt_speed_reset` explicitly removes only our test effect; `kt_stop` also cancels the trial. No keys are rebound. Do not create a new progress save during the trial. See [exact procedure and limitations](docs/SpeedTrial.md); report whether speed changes and whether normal movement returns. Exit and collect the log as above. No automatic experiment runs at startup.
+No keys are rebound automatically. The user-selected F8 binding and current native controls are documented in [PrototypeControls](docs/PrototypeControls.md).
