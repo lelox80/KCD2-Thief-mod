@@ -15,6 +15,19 @@ constexpr unsigned char Prologue[]={
     0x89,0x70,0x18,0x48,0x89,0x78,0x20,0x55};
 constexpr unsigned char Caller[]={0xe8,0xdf,0x01,0x00,0x00};
 constexpr std::uintptr_t QueryRva=0x832188,QueryCallerRva=0x8320f5,QueryReturnRva=0x8320fa;
+#ifdef KT_LEDGE_DRY_GUARD
+// The retail resolver decodes the high word as object index and the low word
+// as segment and side. Reserve the one appended object for this dry fixture.
+constexpr std::uint32_t DryGuideObject=4129,NoGuide=0xffffffffu;
+#ifdef KT_LEDGE_REPEATABLE
+constexpr unsigned DryGuideCount=2;
+#else
+constexpr unsigned DryGuideCount=1;
+#endif
+constexpr std::uint32_t dryQueryResult(std::uint32_t handle) {
+    return (handle>>16)-DryGuideObject<DryGuideCount?NoGuide:handle;
+}
+#endif
 constexpr std::uintptr_t FrameworkRva=0x85612c,FrameworkCallerRva=0x175e08b,FrameworkReturnRva=0x175e090;
 constexpr std::uintptr_t ManagerGlobalRva=0x5484b38,LedgeActionVtableRva=0x3c0d880;
 constexpr std::uintptr_t LedgeActionSecondary10VtableRva=0x3c0d840,LedgeActionSecondary50VtableRva=0x3c0d808;
@@ -34,6 +47,9 @@ constexpr CallerPin Callers[]={
     {QueryCallerRva,{0xe8,0x8e,0x00,0x00,0x00}},
     {FrameworkCallerRva,{0xe8,0x9c,0x80,0x0f,0xff}}
 };
+#ifdef KT_LEDGE_DRY_GUARD
+constexpr CallerPin SecondQueryCaller={0x89efa2,{0xe8,0xe1,0x31,0xf9,0xff}};
+#endif
 struct Selection {
     std::int32_t actionType=-1;
     std::uint32_t handle=0xffffffffu;

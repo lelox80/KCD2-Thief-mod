@@ -1,5 +1,9 @@
 # Sources and evidence
 
+Completed retail loading evidence,2026-11-02: PID34548 retained one complete Kutnohorsko/member1 source/body/index chain with4,129 ledges/27,564 markers and all three typed fingerprints matching independently reconstructed pinned source. Shutdown/counter accounting and three-entry original-byte restoration pass; user confirms normal loaded-world control. Capture SHA-256 `196c1fbbc26fa76f2039af1d3600a2a0d8aa54569116d25e3c52fca7b0a384ba`; independent audit `.local/evidence/v022-guide-runtime-review/`,49-file tested baseline `.local/evidence/v022-guide-tested-baseline`. Physical archive/VFS selection and added guide registration/lifetime remain unknown. [Loading results](NativeGuideLoading.md).
+
+Native guide-loading follow-up,2026-11-02: pinned original DLL bytes now establish C_Game's `<folder>/whdata_<index>` producer and synchronous XML-serializer-to-LedgeManager/index path. Focused REA/Ghidra evidence `ev_a189b17ce4f38302dfa1fab4103682aef82929c4c438345bb1d751cf80d003d2` corroborates the producer. Native observer fixtures and complete-member inspection remain offline evidence until one ordinary load capture. Physical archive source, added-guide lifetime and higher motion remain unknown. [Loading contract](NativeGuideLoading.md), private `.local/evidence/v022-loader-trace/evidence-manifest.json` and `.local/evidence/v022-guide-independent-review.md`.
+
 
 Current checkpoint,2026-11-02: retained October22 v21 collision evidence establishes a1.015720m diagnostic candidate in44 rays, including five support/five headroom samples and all mandatory profile confirmations. Observation-only bridge shutdown is recorded with zero movement writes; preserve789 clock publication refusals, all before instructions, and the raw analyzer warning. Source, artifact and installed package hashes match; offline suites pass again. [Runtime results](LedgeRuntimeResults.md), [current status](../STATUS.md).
 

@@ -51,9 +51,10 @@ def patch(original):
     return result
 
 
-def check_conflicts(mods, own_id):
-    """Conservatively refuse other mods containing the same original asset."""
+def check_conflicts(mods, own_id, extra_assets=()):
+    """Conservatively refuse another mod providing a member we intend to override."""
     import zipfile
+    targets = {ASSET.lower(), *(name.lower() for name in extra_assets)}
     if not mods.exists():
         return
     for folder in mods.iterdir():
@@ -65,9 +66,9 @@ def check_conflicts(mods, own_id):
             if path.suffix.lower() == '.pak':
                 try:
                     with zipfile.ZipFile(path) as archive:
-                        if ASSET.lower() in {n.replace('\\', '/').lower() for n in archive.namelist()}:
-                            raise RuntimeError('Another mod overrides the player observer asset: '+folder.name)
+                        if targets.intersection(n.replace('\\', '/').lower() for n in archive.namelist()):
+                            raise RuntimeError('Another mod overrides a required asset: '+folder.name)
                 except zipfile.BadZipFile:
                     raise RuntimeError('Cannot check mod archive for observer conflicts: '+folder.name)
-            elif path.as_posix().lower().endswith('/'+ASSET.lower()):
-                raise RuntimeError('Another mod has a loose player behavior override: '+folder.name)
+            elif any(path.as_posix().lower().endswith('/'+target) for target in targets):
+                raise RuntimeError('Another mod has a loose override for a required asset: '+folder.name)

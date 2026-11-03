@@ -5,6 +5,7 @@ from pathlib import Path
 import tempfile
 import unittest
 import sys
+import zipfile
 sys.path.insert(0, str(Path(__file__).parents[1] / 'tools'))
 
 spec = importlib.util.spec_from_file_location("project", Path(__file__).parents[1] / "tools/project.py")
@@ -63,6 +64,40 @@ class DeploymentTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "has changes"):
             project.uninstall()
         self.assertEqual(dest.read_bytes(), b"user modification")
+
+    def test_guide_experiment_refuses_conflicts_and_rolls_back(self):
+        profile = project.ROOT / "build/guide-noop/kuttenberg_thief"
+        (profile / "Data").mkdir(parents=True)
+        for name in ("mod.manifest", "Data/test.pak"):
+            (profile / name).write_bytes((self.mod / name).read_bytes())
+        (profile / project.GUIDE_NOOP_PAK).write_bytes(b"verified guide experiment fixture")
+        profile_hashes = {p.relative_to(profile).as_posix(): project.digest(p)
+                          for p in profile.rglob("*") if p.is_file()}
+        (profile.parent / "package-hashes.json").write_text(json.dumps(profile_hashes))
+        project.build = lambda **kwargs: profile if kwargs.get("profile") == "guide-noop" else self.mod
+
+        project.install()
+        with self.assertRaisesRegex(RuntimeError, "Existing mod differs"):
+            project.install(profile="guide-noop")
+        project.uninstall()
+
+        other = self.game / "Mods/other"
+        other.mkdir()
+        with zipfile.ZipFile(other / "other.pak", "w") as package:
+            package.writestr(project.GUIDE_MEMBER.lower(), b"conflicting guide")
+        with self.assertRaisesRegex(RuntimeError, "overrides a required asset"):
+            project.install(profile="guide-noop")
+        (other / "other.pak").unlink()
+
+        project.install(profile="guide-noop")
+        receipt = json.loads((project.ROOT / ".local/install-receipt.json").read_text())
+        self.assertEqual(receipt["profile"], "guide-noop")
+        self.assertEqual(receipt["sha256"], profile_hashes)
+        project.uninstall()
+        project.install()
+        dest = self.game / "Mods/kuttenberg_thief"
+        self.assertFalse((dest / project.GUIDE_NOOP_PAK).exists())
+        self.assertEqual((dest / "Data/test.pak").read_bytes(), b"test package")
 
     def test_build_and_load_order_gates(self):
         (self.game / "engine.dll").write_bytes(b"updated engine")

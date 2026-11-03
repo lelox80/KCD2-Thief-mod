@@ -1,4 +1,142 @@
-# Status — 2026-11-02
+# Status — 2026-11-03
+
+## Tall lookup retry passed in retail
+
+PID 22400 recorded five accepted tall-wall requests, all recovered by the retry, and three accepted raised-pavement requests. Thirteen nearby fresh Jump records missed the normal query and fell outside the retry limits. The limits excluded examples about 0.41–0.43 m from the lip, more than 0.68 m sideways, or 1.52 m back. One close attempt at about 0.42 m found the guide and selected VaultOnto but stopped at the approach gate. None of the logged misses in this set reached capsule clearance. Capture SHA-256 `6ad38513b82cf386da3a0089aeb440a8f077fc104df3dabae5c20c033f7c8429`.
+
+The current guide covers a 0.50 m strip. Survey the face and landing across a longer section before extending the authored guide. The close approach also needs a ground and capsule check at the blocked pose to establish how near Henry can start without overlapping the wall.
+
+## Tall guide lookup retry built
+
+The two-wall retail session in PID 28448 recorded four accepted tall-wall requests and one raised-pavement request. The player confirmed both walls climbed. The close, far and lateral misses examined returned the native no-guide sentinel before selection or clearance. Capture SHA-256 `ece62a7b5276ec203e7000d14396531d2eee3bcc169ae17abaaba0ffb58993b5`.
+
+The next native build retries the normal manager query at the proven tall guide approach after an ordinary miss inside a bounded area. Only the exact registered tall handle may be recovered. The original selector still checks the real actor. The landing lane is clamped to the authored strip, and ground, stance, capsule corridor and landing support are checked from the live pose. Offline replay admitted 13 recorded misses to the retry. Whether the game selects and climbs from those positions remains a retail test.
+
+The retry build passed its native fixtures and attached to PID 22400 before save load. The verified two-guide package was reused after a fresh backup of 237 saves.
+
+## Repeated 1.64 m climbs confirmed. Two-wall follow-up built.
+
+In PID 31636 the player confirmed multiple normal Jump climbs in the same session, including animation, landing and normal control. Hands sat slightly low but the camera movement made it unobtrusive. The live capture contains five accepted fixture requests. The process exited without an audit footer. Capture SHA-256 `b5d8262318950803fb6c64d6b03102be55ac93f20edfdc5cfcb60ab3a410dd4a`.
+
+The follow-up replaces the ±10 cm distance check with a 0.45–1.28 m wall-relative eligibility window and accepts facing within about 20 degrees when the aim ray crosses the authored strip. KCD2 must still select that guide. Each attempt checks a standing capsule from the live approach through the aimed lane and sweeps down to confirm landing support. The exact 1.02 m guide uses stock VaultOnto parameters. The wider approach and both walls in a single session still need retail playtesting.
+
+The two-wall package was built and hash-verified after a backup of 237 saves. The pinned native build passed its fixtures and attached successfully to retail PID 28448 before save load.
+
+## Repeatable Jump path built for the 1.64 m wall
+
+The local launcher starts KCD2 through Steam and attaches the pinned traversal DLL before the save loads. The guide is enabled on a matching Kuttenberg index build. Each new Jump press can request the stock VaultOnto action after the approach, standing, ground and capsule checks pass. The retry cooldown and registry validation apply on every climb. A full audit buffer leaves traversal available. Native fixtures passed repeat admission, held-input refusal, cooldown, index invalidation and refusal of altered guide data. Two climbs in one retail session remain to be tested.
+
+## First 1.64 m climb passed in retail
+
+PID 27200 selected VaultOnto for the added taller guide. After explicit arming, the one-shot gate passed from current ground contact, forwarded one native request and recorded one framework acceptance. The user confirmed the climb animation, landing on top and normal control. Hand placement was not observed. The audit was sealed and the guard remains resident until exit. Capture SHA-256 `c67290391306f8fc448af7e90389becfdcfd42af90e6495831e5befd4f0af673`.
+
+## Taller wall measured
+
+In the same loaded session, the read-only scan measured the next wall at 1.639595 m. All five landing rays hit the same flat top and all five headroom rays missed. The 38-ray result is outside the shipped 1.5 m VaultOnto range. The bridge stopped and both original hooks were verified restored. Geometry evidence `.local/logs/20261103T212130790783Z-probe.log`.
+
+PID 32612 returned zero for all four tall-corridor overlaps and all three sweeps after successful ground controls. The original hook was restored. Capture SHA-256 `8c36114473b665492b9b67969a03acefaf592f61e457991a04d839e94ea2cbd1`. The inactive tall guide is installed and hash-verified with a fresh backup of 237 saves. The trial raises only the allowed VaultOnto height to 1.70 m in a temporary selector parameter copy for this guide. It keeps the stock animation interval. The retail result is recorded above.
+
+## Added 1.02 m wall climbed in retail
+
+PID 32612 passed the one-shot gate from live ground contact. Exactly one type 4 request for the added fixture reached the original framework and was accepted. The user confirmed the climb animation, ascent onto the wall and normal control afterward. No take-off fallback was used. Capture SHA-256 `bf820b08a95e665c75593277024037f3fc8cbdcb87cf4582ccf0828782456207`. The audit is sealed. The guard remains resident until exit. Taller motion and interruption remain open.
+
+## One-shot attempt refused by the ground check
+
+PID 23788 armed and consumed its one-shot check. The ground gate refused before release, with zero framework forwards and zero acceptances. The user reported ordinary jumps without a climb. Capture SHA-256 `492cd7e5327863b626f9752396551bca60de6f258dfbee56ef78ec3a8e246aee`. The audit is sealed and the guide remains guarded until exit.
+
+The read-only follow-up captured 46 grounded and six flying samples. The first flying sample was already 2.8 cm above the prior ground height. At rest the physical origin and ground height agreed within 2 mm. The tested standing position was about 0.77 m east of the intended approach. Capture SHA-256 `a14c4d81dbd8945be2164bed3ffbd47eaeaca5ab0afddcf22e8f13acfe2c1585`. The exact original request entry was restored.
+
+The updated trial recognizes immediate take-off only with a grounded sample for the same player within 100 ms, less than 4.5 cm lateral displacement and less than 5 cm rise. The current standing dimensions, position and fresh clearance gates still apply. The prior refusal did not retain the ground subcondition, so its exact cause remains unconfirmed.
+
+## VaultOnto selected in retail and one-shot climb trial built
+
+PID 20404 matched the corrected guide with side flags `[519, 0]` and one successful index activation. All 826 fixture queries selected native action type 4, VaultOnto. The preview withheld every selection and recorded no fixture framework request. Capture SHA-256 `e56d1d0267287bda0b5c040fd77e64d9cd58ca5f9b49ceafc9d793628f084052`.
+
+The separate trial build stays guarded until explicitly armed. It can forward one native type 4 request at the measured 1.02 m wall after verifying the original input byte, live standing capsule, ground contact, approach pose and fresh capsule controls and corridor. KCD2 retains the action and movement. Owned-process detours passed explicit arming, idle refusal, one framework forward and refusal of a second attempt. Retail animation, landing and control return are pending. The same inactive package remains installed.
+
+## Native action preview found a missing authored flag
+
+PID 15676 activated the guide with side flags `[6, 0]`. KCD2 returned its handle 1,236 times and chose `-1` each time. The guard withheld all 1,236 results before action creation. The user reported ordinary jumps and one jump onto the wall without a climb animation. Capture SHA-256 `a833a7f251e4dc53df38af3f1940f49efff4ee016d01c9f35b4b18c9ef61c16d`.
+
+Live VaultOnto entries have the wide kind and an allowed height interval containing 1.02 m. The original selector tests side flag `0x200` at `0xf44b06` before the slot loop. The fixture omitted it. The next guarded preview uses `0x207`, an exact shipped single-sided wide-vault value found on 24 Kuttenberg guides. It writes the full 16-bit side field. The inactive package on disk stays the same.
+
+## Raised-pavement corridor clear in retail
+
+The bounded test in PID 2448 repeated the three ground controls, then returned zero for all four standing-capsule overlaps and all three sweeps on the planned rise, crossing and descent. The original request entry was restored. Capture SHA-256 `a7dd515f39555504a626781b0c4d6a86ec233ef72ed0b63ae7812c2767ab9a43`. The tested wall is 1.01572 m high at the scanned approach. These queries cover the planned corridor with the test filters. Native animation clearance remains open.
+
+The dry preview enables the exact inactive guide in memory as a wide ordinary vault and withholds the selector result before action creation. PID 25568 retained the inactive record and both markers, with zero activations or fixture queries. The save may have loaded before the guard was armed. The audit was sealed and further activation disarmed. The retry build passed fixtures and records the outcome of each native index callback. The same inactive package remains installed.
+
+## Live player dimensions verified
+
+PID 2448 produced 119 readable samples for the same player. Standing produced 68 samples with size `[0.35, 0.35, 0.40]` and center `1.05` m. Crouching produced 51 samples with size `[0.35, 0.35, 0.10]` and center `0.80` m. Both use capsule mode and pivot zero. Stop and original-entry restoration passed. Capture SHA-256 `9b649d4d843fc137edad800a73dd4385a1d66fa12fcd7ff895a4633ede989761`.
+
+The capsule control ran in the same loaded session. Standing overlap returned 0, the lowered overlap returned 1, and a 0.75 m downward sweep hit at 0.29956 m. Stop and original-entry restoration passed. Capture SHA-256 `054562e9c456fea42747323e716750715c8db534e16486725a1d262b11d3b6c9`.
+
+The first corridor capture window had zero player callbacks. Its hook was restored. The focused gameplay repeat completed above.
+
+## Guarded index registration passed in retail
+
+PID 29320 activated the pinned fixture once during load. The loaded-manager snapshot matched the appended tail with side flags `[2, 0]` and all markers. The user confirmed normal control and reported a jump without a climb at the raised-pavement wall. The sealed capture reconciled 981 fixture queries and 981 refusals before action selection across 4,338 transactions, with no fixture framework request or review problems. Capture SHA-256 `dc172f9b1df9eca59f94bc055b2702ba8bddef62e88b3865be5938b3fa718312`.
+
+After exit, archived the dry profile and independently verified its hashes and the restored baseline. The installer verified 237 save files. Evidence `.local/evidence/20261103-v026-dry-rollback.json`.
+
+The player-collider probe reads dimensions through the pinned living-entity getter during Henry's normal controller callback. The retail result is recorded above. [Test plan](docs/TestPlan.md).
+
+## Dry traversal guard and clearance observer built
+
+The opt-in dry guard suppresses the fixture's spatial query result before native action selection, independently of logging. Its index hook can enable the exact inactive append fixture in memory during the original index rebuild. The installed archive carries zero side flags, and the query guard stays armed until process exit. Owned-process fixtures cover the pinned member, rejected foreign data, the exact flag change and suppression of both sides. Retail registration is pending.
+
+The read-only clearance observer captured zero of the four pinned adjustment sweeps in PID 33840. The user confirmed a normal vanilla climb. Stop and the independent original-byte check passed. The next clearance lead is the separate native type 6 capsule path. Session evidence is in `.local/evidence/20261103-v026-clearance-session.json`.
+
+The exact inactive append package was installed for the dry registration test above. All three installed hashes matched and the installer verified a fresh backup of 237 saves.
+
+## Inactive guide append passed the retail storage test
+
+PID 33944 reported 4,130 ledges and 27,566 markers. All three callback fingerprints matched the staged arrays. The user confirmed normal control. The observer stopped cleanly and all three original hook sites were independently verified restored. The capture and installed member hashes are recorded in `.local/evidence/20261103-v025-guide-append-runtime-session.json`.
+
+A read-only snapshot of the loaded manager after control returned found the appended record and both markers intact. Its side flags were still zero. All marker bytes matched. The 76 changed base ledge records differed only by eligibility-bit clears on nonzero entity references, consistent with the post-index validation routine at `0x133137c`. Evidence `.local/evidence/20261103-v025-loaded-manager-diff.json`.
+
+Rollback completed after normal game exit. The archived append profile and the restored baseline match their receipts. The installer verified a fresh backup of 237 saves. Evidence `.local/evidence/20261103-v025-guide-append-rollback.json`.
+
+Original retail code shows that side-zero flag bit 1 enables index insertion and that one selector branch can reach a height check while bypassing action-type flag tests. An indexed guide therefore needs a separate proven traversal guard. The retail animation adjustment code supplies a box-sweep lead for clearance, with player shape, overlap semantics and the climb trajectory still to establish. [Native route and remaining gates](docs/KCD2HigherClimbRoute.md#eligibility-and-body-clearance).
+
+## Inactive guide append build and install evidence
+
+Restored the baseline and verified the installed hashes against the original archive. The completed mount experiment is archived in `.local/backups/20261103T194012330538Z-uninstalled`. The rollback receipt is `.local/evidence/20261103-v024-guide-noop-rollback.json`.
+
+The subsequent `guide-append` build and install passed with KCD2 closed. It appends one inactive record and two markers while preserving all original XML records and profile bytes. The expected runtime counts are 4,130 ledges and 27,566 markers. Both side flags are zero. Original retail instructions at `0x7e6ad1` and `0x7e6ad4` show the index builder skips a record with this setting. The test checks native array storage and preserves the traversal gate.
+
+All 46 Python tests and the Lua and PAK build checks passed. The three installed files and archived baseline match their receipts. The installer verified a fresh backup of 237 saves. Expected native fingerprints and install evidence are in `.local/evidence/20261103-v025-guide-append-installed.json`. [Test plan](docs/TestPlan.md).
+
+## Byte-identical guide mount passed in retail
+
+KCD2 read `Levels/kutnohorsko/whdata_1` from the owned mod archive in PID 15484. The verified test PAK was the sole owned package containing that member. The user confirmed normal control after loading. Both original hook sites were restored after stop, and all 40,698 lookup calls reconcile with zero dropped records or writer failures. Session and capture hashes are in `.local/evidence/20261103-v024-guide-noop-runtime-session.json`.
+
+Rollback completed after normal game exit. The subsequent inactive append result and rollback are recorded above. [Mount result and rollback](docs/GuideSourceAttribution.md).
+
+## Byte-identical guide mount build and install evidence
+
+The archive attribution load passed in PID 30544. `Levels/kutnohorsko/whdata_1` came from the base Kutnohorsko `level.pak`. The user confirmed normal control. Both original hook entries were restored after stop. Both source transactions and all lookup calls reconcile. Member 0 had multiple lookups and remains unattributed. The capture and restoration are recorded in `.local/evidence/20261103-v023-source-runtime-session.json`.
+
+The `guide-noop` build stages one separate PAK with the complete byte-identical member at the observed logical path. Its SHA-256 matches the pinned source. The staged manifest and main PAK also match the current installed hashes. The Lua and package checks and all 45 Python tests pass. Mod conflict, load order and current installation ownership checks pass. [Mount test and rollback](docs/GuideSourceAttribution.md).
+
+All three test profile file hashes and the installed guide member were verified before and after the load. The installer verified 237 save files in `.local/backups/20261103T193534893062Z`. The previous package is archived and hash verified at `.local/backups/20261103T193530007074Z-uninstalled`. Install receipt `.local/evidence/20261103-v024-guide-noop-installed.json`.
+
+## Archive attribution probe build evidence
+
+The source probe follows the existing pak-name lookup and ties its return to the exact `whdata` request. It records closed namespace and archive classifications. All 44 Python tests passed, including the source-capture parser tests. The two native detours passed forwarding, returned-pointer preservation, exception propagation and restoration fixtures. The formatter output passed parser validation. Both hook entries, five original byte regions, the provider slot and all ten build source pins matched. The 49-file guide-index baseline passed hash verification.
+
+The tested source probe is in `.local/native/guide-source-probe/build-v023/`. Readiness receipt `.local/evidence/20261103-v023-source-ready.json`. Its closed-game backup `.local/backups/20261103T192850262136Z` verified 237 files.
+
+## Native guide load/index baseline passed in retail
+
+PID34548: the user loaded the saved world and confirmed normal control. All source/DLL/install pins match. Two source calls were retained: Kutnohorsko member0 had no ledge body/index callback; member1 had exactly one guarded body and one normal index callback. Its4,129 ledges/27,564 markers and full/structural/marker typed fingerprints all match the pinned shipped member. Complete shutdown accounting passes with zero drops, unlinked calls, overflow, truncation or writer failure. The observer stopped and independent process-memory reads verify all three original entries restored; its DLL remains pinned/inert until normal exit.
+
+The49-file tested source/payload/capture baseline is preserved in `.local/evidence/v022-guide-tested-baseline`. Session `.local/evidence/20261102-v022-guide-runtime-session.json`, review `.local/evidence/20261102-v022-guide-review.json` and independent capture audit `.local/evidence/v022-guide-runtime-review/` retain comparisons and limits. No unchanged load/Jump/geometry repeat is needed. [Evidence and next dependency](docs/NativeGuideLoading.md).
+
+Written/built: the source-pinned complete-member inspector and separate GuideProbe revision1, all39 Python tests, native owned-process forwarding/exception/ownership/audit/restoration and formatter/parser conformance checks pass. Retail observation now validates this normal source/body/index route and copied data, rather than added guide registration. Installed v0.0.21 remains unchanged; fresh237-file save backup is preserved.
+
+Next work is exact archive/VFS attribution, then a reversible byte-identical mounting experiment before one owned ordinary-range guide with proven lifetime. Matching native arrays do not identify the physical archive, inspect every spatial-tree node or authorize traversal. Whole-body clearance, suitable higher native motion and exclusive host action/interruption remain separate requirements. Higher climbable walls remain the target; added climbs remain disabled.
 
 ## Current progress review — v0.0.21
 

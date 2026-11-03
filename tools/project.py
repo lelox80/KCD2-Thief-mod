@@ -12,6 +12,14 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 MOD_ID = "kuttenberg_thief"
+GUIDE_MEMBER = "Levels/kutnohorsko/whdata_1"
+GUIDE_NOOP_PAK = "Data/kuttenberg_thief_guide_noop.pak"
+GUIDE_PAKS = {
+    "guide-noop": GUIDE_NOOP_PAK,
+    "guide-append": "Data/kuttenberg_thief_guide_append.pak",
+    "guide-tall": "Data/kuttenberg_thief_guide_tall.pak",
+    "guide-walls": "Data/kuttenberg_thief_guide_walls.pak",
+}
 
 
 def digest(path):
@@ -43,7 +51,34 @@ def verify_build(c):
             raise RuntimeError("Installed retail binary changed; repeat capability assessment: " + key)
 
 
-def build():
+def package_root(profile):
+    if profile is None:
+        return ROOT / "build"
+    if profile not in GUIDE_PAKS:
+        raise ValueError("Unknown build profile")
+    return ROOT / "build" / profile
+
+
+def write_guide_package(archive, destination, profile):
+    from guide_member import append_inactive, inspect, read_member
+
+    payload, _ = read_member(archive)
+    if profile != "guide-noop":
+        payload, report = append_inactive(payload, profile)
+    else:
+        report = inspect(payload)
+    with zipfile.ZipFile(destination, "w", compression=zipfile.ZIP_STORED) as package:
+        package.writestr(zipfile.ZipInfo(GUIDE_MEMBER, (2026, 11, 3, 0, 0, 0)), payload)
+    with zipfile.ZipFile(destination) as package:
+        if (package.namelist() != [GUIDE_MEMBER] or package.testzip() is not None
+                or package.read(GUIDE_MEMBER) != payload):
+            raise RuntimeError("Guide experiment archive failed payload verification")
+    report.update(logical_member=GUIDE_MEMBER, package=destination.name, archive_created=True)
+    report.pop("mount_path", None)
+    return report
+
+
+def build(profile=None):
     from observer_patch import ASSET, patch
     from stealth_movie import build as build_movie
     c = config()
@@ -84,7 +119,8 @@ def build():
         for name in retail_tables.namelist():
             if name.startswith('Libs/Tables/rpg/buff') and name.endswith('.xml'):
                 assert buff.get('buff_id').encode() not in retail_tables.read(name), 'Owned buff ID collides with retail'
-    out = ROOT / "build" / MOD_ID
+    output_root = package_root(profile)
+    out = output_root / MOD_ID
     (out / "Data").mkdir(parents=True, exist_ok=True)
     shutil.copy2(manifest, out / "mod.manifest")
     pak = out / "Data/kuttenberg_thief.pak"
@@ -111,8 +147,17 @@ def build():
         assert z.read('Libs/UI/KTStealth.swf') == stealth_movie.read_bytes()
         assert not excluded.intersection(z.namelist()), 'Legacy movement trial must not be packaged'
         assert all(i.compress_type == zipfile.ZIP_STORED for i in z.infolist())
+    files = {'mod.manifest', 'Data/kuttenberg_thief.pak'}
+    if profile:
+        guide_pak = GUIDE_PAKS[profile]
+        report = write_guide_package(Path(c['game']) / 'Data/Levels/kutnohorsko/level.pak',
+                                     out / guide_pak, profile)
+        (output_root / "guide-member.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
+        files.add(guide_pak)
     result = {p.relative_to(out).as_posix(): digest(p) for p in out.rglob("*") if p.is_file()}
-    (ROOT / "build/package-hashes.json").write_text(json.dumps(result, indent=2))
+    if profile and set(result) != files:
+        raise RuntimeError("Unexpected files in build output")
+    (output_root / "package-hashes.json").write_text(json.dumps(result, indent=2))
     print("BUILD PASS: Lua 5.1 tests/syntax, manifest, ZIP_STORED PAK and CRC.")
     return out
 
@@ -146,19 +191,19 @@ def backup():
     print("BACKUP VERIFIED:", len(entries), "files;", dest)
 
 
-def install():
+def install(profile=None):
     from observer_patch import check_conflicts
     require_closed()
     c = config()
     verify_build(c)
-    source = build()
+    source = build(profile=profile) if profile else build()
     mods = Path(c["game"]) / "Mods"
-    check_conflicts(mods, MOD_ID)
+    check_conflicts(mods, MOD_ID, extra_assets=(GUIDE_MEMBER,) if profile else ())
     order = mods / "mod_order.txt"
     if order.exists() and MOD_ID not in order.read_text(encoding="utf-8-sig").splitlines():
         raise RuntimeError("Existing mod_order.txt excludes this mod. Review it before changing load order.")
     dest = mods / MOD_ID
-    expected = json.loads((ROOT / "build/package-hashes.json").read_text())
+    expected = json.loads((package_root(profile) / "package-hashes.json").read_text())
     if dest.exists():
         actual = {p.relative_to(dest).as_posix(): digest(p) for p in dest.rglob("*") if p.is_file()}
         if actual != expected: raise RuntimeError("Existing mod differs. Uninstall the owned version first.")
@@ -173,6 +218,8 @@ def install():
         if digest(target) != sha: raise RuntimeError("Installed hash mismatch: " + name)
     receipt = {"destination": str(dest), "sha256": expected,
                "version": ET.parse(source / "mod.manifest").findtext("info/version")}
+    if profile:
+        receipt["profile"] = profile
     (ROOT / ".local/install-receipt.json").write_text(json.dumps(receipt, indent=2))
     print("INSTALL VERIFIED:", dest)
 
@@ -222,8 +269,23 @@ def collect():
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("command", choices=["build", "backup", "install", "uninstall", "collect"])
+    profiles = parser.add_mutually_exclusive_group()
+    profiles.add_argument("--guide-noop", dest="profile", action="store_const", const="guide-noop",
+                          help="Build or install the byte-identical guide mount experiment")
+    profiles.add_argument("--guide-append", dest="profile", action="store_const", const="guide-append",
+                          help="Build or install the inactive guide storage experiment")
+    profiles.add_argument("--guide-tall", dest="profile", action="store_const", const="guide-tall",
+                          help="Include the inactive tall Kuttenberg guide")
+    profiles.add_argument("--guide-walls", dest="profile", action="store_const", const="guide-walls",
+                          help="Include both inactive Kuttenberg wall guides")
+    args = parser.parse_args()
+    if args.profile and args.command not in {"build", "install"}:
+        parser.error("Guide profiles require build or install")
     try:
-        globals()[parser.parse_args().command]()
+        if args.profile:
+            globals()[args.command](profile=args.profile)
+        else:
+            globals()[args.command]()
     except Exception as error:
         print("FAILED:", error, file=sys.stderr)
         sys.exit(1)

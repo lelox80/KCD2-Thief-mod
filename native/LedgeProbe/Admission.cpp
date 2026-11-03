@@ -1,21 +1,83 @@
-// Observe existing native attempts. Never invoke a traversal or change its data.
+// The normal build observes existing attempts. The dry guard build suppresses
+// the fixture handle after the native spatial query.
 #include "../StateBridge/WindowsTarget.h"
 #include "../StateBridge/AuditQueue.h"
 #include "Selection.h"
+#ifdef KT_LEDGE_DRY_GUARD
+#include "../GuideProbe/Guide.h"
+#include "DryGuide.h"
+#endif
 #include "MinHook.h"
 #include <atomic>
 #include <cmath>
 #include <cwchar>
 #include <intrin.h>
+#ifdef KT_LEDGE_TALL_PREVIEW
+#include "TallPreview.h"
+#endif
+#ifdef KT_LEDGE_LIVE_TRIAL
+#include "VaultTrial.h"
+#endif
+#ifdef KT_LEDGE_REPEATABLE
+#include "RepeatableVault.h"
+#endif
 
 namespace {
 ktledge::AttemptFn originalAttempt=nullptr;
 ktledge::SelectionFn originalSelection=nullptr;
 ktledge::QueryFn originalQuery=nullptr;
 ktledge::FrameworkFn originalFramework=nullptr;
+#ifdef KT_LEDGE_DRY_GUARD
+ktguide::IndexFn originalIndex=nullptr;
+std::atomic<bool> activationArmed{false};
+std::atomic<unsigned> dryActivations{0},guardedQueries{0};
+std::atomic<unsigned> dryIndexResults[static_cast<unsigned>(ktledge::DryIndexResult::Count)]{};
+#ifdef KT_LEDGE_DRY_SELECTION
+std::atomic<unsigned> withheldSelections{0};
+#endif
+#ifdef KT_LEDGE_LIVE_TRIAL
+#ifdef KT_LEDGE_REPEATABLE
+std::atomic<std::uint64_t> indexEpoch{0},activeEpoch{0},nextTrial{0};
+SRWLOCK traversalState=SRWLOCK_INIT;
+ktvault::JumpEdge jumpEdge;
+bool freshJump(std::uint64_t epoch,std::uint32_t entity,const void* input);
+#else
+std::atomic<bool> trialArmedOnce{false};
+std::atomic<unsigned long long> trialDeadline{0};
+#endif
+std::atomic<unsigned> trialResult{0},trialFrameworkForwards{0},trialGroundSamples{0};
+std::atomic<bool> trialUsedTakeoff{false};
+struct GroundFrame {
+    ktcapsule::Vector position;std::uint32_t entity=0;std::uint64_t tick=0;
+#ifdef KT_LEDGE_REPEATABLE
+    std::uint64_t epoch=0;
+    std::uint32_t handle=0;
+    std::uintptr_t actor=0;
+#endif
+};
+#ifdef KT_LEDGE_REPEATABLE
+GroundFrame lastGround;
+#else
+thread_local GroundFrame lastGround;
+#endif
+#ifdef KT_LEDGE_FIXTURE
+bool fixtureClearance=false;
+#endif
+#endif
+#ifdef KT_LEDGE_TALL_PREVIEW
+using ParamsFn=void* (__fastcall *)(void*,std::uint32_t);
+ParamsFn originalParams=nullptr;
+std::atomic<unsigned> tallClones{0};
+constexpr unsigned HookCount=6;
+#else
+constexpr unsigned HookCount=5;
+#endif
+#else
+constexpr unsigned HookCount=4;
+#endif
 std::uintptr_t gameBase=0;
 HMODULE ownModule=nullptr;
-void* targets[4]{};
+void* targets[HookCount]{};
 HANDLE writerThread=nullptr,logFile=INVALID_HANDLE_VALUE;
 std::atomic<bool> attempted{false},recording{false},stopping{false},stopBusy{false},writeFailed{false},truncated{false};
 std::atomic<unsigned> inFlight{0};
@@ -63,8 +125,28 @@ struct Sample {
     std::uint8_t attemptByte=0,frameworkByte=0;
     bool completed=false,exceptional=false,queryKnown=false,queryInputsKnown=false,queryReturnMatches=false,
         selectionKnown=false,requestKnown=false,frameworkReturned=false,attemptReturned=false,allowAlternate=false,contextSuppressed=false;
+#ifdef KT_LEDGE_REPEATABLE
+    const char* climbGate=nullptr;
+    bool retryLookup=false,recoveredLookup=false;
+#endif
 };
-struct Frame {std::uintptr_t actor=0;Sample sample;};
+struct Frame {
+    std::uintptr_t actor=0;
+    Sample sample;
+#ifdef KT_LEDGE_DRY_SELECTION
+    bool previewActive=false;
+#endif
+#ifdef KT_LEDGE_TALL_PREVIEW
+    bool tallQuery=false,tallExtended=false;
+    kttall::ParamBlock tallParams{};
+#endif
+#ifdef KT_LEDGE_LIVE_TRIAL
+    bool trialInput=false,trialReleased=false;
+#endif
+#ifdef KT_LEDGE_REPEATABLE
+    std::uint64_t guideEpoch=0;
+#endif
+};
 struct FrameStack {unsigned depth=0,suppressed=0;Frame frame[MaxDepth];};
 thread_local FrameStack stack;
 using Queue=kt::AuditQueue<Sample,Capacity>;
@@ -77,6 +159,22 @@ bool allPins(std::uintptr_t base) {
             if(memcmp(reinterpret_cast<void*>(base+pin.rva),pin.bytes,sizeof pin.bytes)) return false;
         for(const auto& pin:ktledge::Callers)
             if(memcmp(reinterpret_cast<void*>(base+pin.rva),pin.bytes,sizeof pin.bytes)) return false;
+#ifdef KT_LEDGE_DRY_GUARD
+        const auto& pin=ktledge::SecondQueryCaller;
+        if(memcmp(reinterpret_cast<void*>(base+pin.rva),pin.bytes,sizeof pin.bytes)) return false;
+        const auto& index=ktguide::Hooks[2];
+        constexpr unsigned char indexCall[]={0xe8,0xa2,0x57,0x4b,0xff};
+        if(memcmp(reinterpret_cast<void*>(base+index.rva),index.bytes,sizeof index.bytes)||
+           memcmp(reinterpret_cast<void*>(base+ktguide::IndexReturn-5),indexCall,sizeof indexCall)) return false;
+#endif
+#ifdef KT_LEDGE_LIVE_TRIAL
+        if(!ktvault::pins(base)) return false;
+#endif
+#ifdef KT_LEDGE_TALL_PREVIEW
+        constexpr unsigned char call[]={0xe8,0xe2,0xd7,0x8e,0xff};
+        if(!ktretail::bytesMatch(base,{kttall::ParamsRva,"8954241053574883ec38488bd98bfa48"})||
+           memcmp(reinterpret_cast<void*>(base+kttall::SelectorReturn-5),call,sizeof call)) return false;
+#endif
         return true;
     } __except(EXCEPTION_EXECUTE_HANDLER) {return false;}
 }
@@ -108,7 +206,11 @@ bool suppressNested() {
     stack.frame[stack.depth-1].sample.contextSuppressed=true;++stack.suppressed;return true;
 }
 Frame* enter(void* actor,unsigned scope) {
+#ifdef KT_LEDGE_REPEATABLE
+    if(stack.suppressed||!activationArmed.load(std::memory_order_acquire)) return nullptr;
+#else
     if(stack.suppressed||!recording.load(std::memory_order_acquire)) return nullptr;
+#endif
     std::uint32_t entity=0;
     if(!ownerId(actor,entity)) {++ownerRefused;return nullptr;}
     if(stack.depth>=MaxDepth) {++contextOverflow;recording=false;return nullptr;}
@@ -133,7 +235,12 @@ void enqueue(const Sample& sample) {
 void leave(Frame* f,bool normal) {
     if(!f) return;
     f->sample.completed=normal;f->sample.exceptional|=!normal;f->sample.end=ticks();
-    enqueue(f->sample);++ended;
+#ifdef KT_LEDGE_REPEATABLE
+    if(recording) enqueue(f->sample);
+#else
+    enqueue(f->sample);
+#endif
+    ++ended;
     // Only scalar Sample enters the queue. Callback-scoped actor identity is
     // erased before returning, also on SEH/C++ unwind.
     *f=Frame{};--stack.depth;
@@ -157,6 +264,16 @@ template<class T> bool guardedRead(const void* source,T& value) {
     __try {memcpy(&value,source,sizeof value);return true;}
     __except(EXCEPTION_EXECUTE_HANDLER) {return false;}
 }
+#ifdef KT_LEDGE_REPEATABLE
+bool freshJump(std::uint64_t epoch,std::uint32_t entity,const void* input) {
+    unsigned char bits[2]{};
+    const auto known=guardedRead(input,bits);
+    AcquireSRWLockExclusive(&traversalState);
+    const auto fresh=jumpEdge.update(epoch,entity,known,bits);
+    ReleaseSRWLockExclusive(&traversalState);
+    return fresh;
+}
+#endif
 RequestGuard frameworkRequest(void* framework,void* holder,Frame* f) {
     auto& s=f->sample;s.requestGuardBits=0;s.actionVtableRva=0xffffffffu;s.actionVtableRead=false;
     s.componentVtableRva=0xffffffffu;s.componentVtableRead=false;s.request=ktledge::Request{};
@@ -226,6 +343,18 @@ std::uint8_t __fastcall observedAttempt(std::uintptr_t opaque1,void* actor,std::
     ++inFlight;++calls[0];Frame* f=nullptr;std::uint8_t result=0;bool normal=false,muted=false;
     __try {
         if(callerMatches(caller,ktledge::AttemptReturnRva)) f=enter(actor,0);
+#ifdef KT_LEDGE_LIVE_TRIAL
+#ifdef KT_LEDGE_REPEATABLE
+        if(f) {
+            f->guideEpoch=activeEpoch.load();
+            f->trialInput=freshJump(f->guideEpoch,f->sample.entity,input);
+            if(f->trialInput) f->sample.climbGate="no_owned_selection";
+        }
+#else
+        unsigned char bits[2]{};
+        if(f&&guardedRead(input,bits)) f->trialInput=bits[0]==1&&bits[1]==0;
+#endif
+#endif
         if(!f) muted=suppressNested();
         result=originalAttempt(opaque1,actor,opaque3,restriction,input);normal=true;
     } __finally {
@@ -235,6 +364,135 @@ std::uint8_t __fastcall observedAttempt(std::uintptr_t opaque1,void* actor,std::
     }
     return result;
 }
+#ifdef KT_LEDGE_LIVE_TRIAL
+#ifdef KT_LEDGE_REPEATABLE
+bool activeGuide(std::uint64_t epoch) {
+    if(!activationArmed||!epoch||epoch!=activeEpoch.load()||epoch!=indexEpoch.load()) return false;
+#ifdef KT_LEDGE_FIXTURE
+    if(fixtureCallers) return true;
+#endif
+    __try {
+        auto* manager=*reinterpret_cast<const unsigned char**>(gameBase+ktledge::ManagerGlobalRva);
+        if(!manager||manager[0x60028]||
+           *reinterpret_cast<const unsigned*>(manager+0x10)!=ktledge::DryLedgeCount||
+           *reinterpret_cast<const unsigned*>(manager+0x14)!=ktledge::DryMarkerCount) return false;
+        const auto* ledges=*reinterpret_cast<const unsigned char* const*>(manager);
+        const auto* markers=*reinterpret_cast<const unsigned char* const*>(manager+8);
+        if(!ledges||!markers) return false;
+        for(unsigned index=0;index<ktledge::DryGuideCount;++index) {
+            unsigned char expected[ktledge::LedgeSize];
+            ktledge::dryTail(index,true,expected);
+            if(memcmp(ledges+(ktledge::DryGuideObject+index)*ktledge::LedgeSize,expected,sizeof expected)) return false;
+        }
+        std::uint64_t hash=0xcbf29ce484222325ull;
+        for(unsigned i=ktledge::DryMarkerStart;i<ktledge::DryMarkerCount;++i)
+            for(unsigned j=0;j<25;++j) ktledge::hashByte(hash,markers[i*28+j]);
+        return hash==ktledge::ActiveMarkerHash&&epoch==activeEpoch.load()&&epoch==indexEpoch.load();
+    } __except(EXCEPTION_EXECUTE_HANDLER) {return false;}
+}
+#endif
+bool trialCandidate(const Frame& frame,const ktledge::Selection& selection) {
+    const auto& s=frame.sample;
+#ifdef KT_LEDGE_REPEATABLE
+    const auto* wall=ktvault::wallFor(selection.handle);
+    return wall&&s.scope==0&&selection.actionType==4&&
+        (selection.handle!=ktvault::Handle||frame.tallExtended)&&activeGuide(frame.guideEpoch)&&
+        s.queryKnown&&s.queryReturnMatches&&s.queryHandle==selection.handle&&
+        s.queries==1&&s.selections==1&&ktvault::aim(*wall,s.direction);
+#else
+#ifdef KT_LEDGE_TALL_PREVIEW
+    if(!frame.tallExtended) return false;
+#endif
+    return s.scope==0&&selection.actionType==4&&selection.handle==ktvault::Handle&&
+        recording&&
+        s.queryKnown&&s.queryHandle==selection.handle&&s.queries==1&&s.selections==1&&
+        s.direction[0]*ktvault::Facing.x+s.direction[1]*ktvault::Facing.y>=0.98f&&
+        std::abs(s.direction[2])<=0.01f;
+#endif
+}
+void rememberGround(Frame& frame,void* actor,const ktledge::Selection& selection) {
+#ifndef KT_LEDGE_REPEATABLE
+    lastGround={};
+#endif
+    if(!trialCandidate(frame,selection)) return;
+#ifdef KT_LEDGE_FIXTURE
+    if(fixtureClearance) return;
+#endif
+    ktvault::Contact contact;
+    if(ktvault::inspect(gameBase,actor,contact)==ktvault::Result::Released&&contact.grounded) {
+#ifdef KT_LEDGE_REPEATABLE
+        ktcapsule::Corridor route;
+        if(!ktvault::approachRoute(*ktvault::wallFor(selection.handle),contact.position,frame.sample.direction,
+                                  route,frame.sample.recoveredLookup)) return;
+        const auto tick=GetTickCount64();
+        AcquireSRWLockExclusive(&traversalState);
+        if(tick>=lastGround.tick)
+            lastGround={contact.position,frame.sample.entity,tick,frame.guideEpoch,selection.handle,frame.actor};
+        ReleaseSRWLockExclusive(&traversalState);
+#else
+        lastGround={contact.position,frame.sample.entity,GetTickCount64()};
+#endif
+        ++trialGroundSamples;
+    }
+}
+ktvault::Result trialClearance(Frame& frame,void* actor) {
+#ifdef KT_LEDGE_FIXTURE
+    if(fixtureClearance) return ktvault::Result::Released;
+#endif
+    ktvault::Contact contact;
+    const auto result=ktvault::inspect(gameBase,actor,contact);
+    if(result!=ktvault::Result::Released) return result;
+    if(!contact.grounded) {
+#ifdef KT_LEDGE_REPEATABLE
+        AcquireSRWLockShared(&traversalState);
+        const auto ground=lastGround;
+        ReleaseSRWLockShared(&traversalState);
+#else
+        const auto& ground=lastGround;
+#endif
+        const auto now=GetTickCount64();
+        if(ground.entity!=frame.sample.entity||!ground.tick||now<ground.tick||
+#ifdef KT_LEDGE_REPEATABLE
+           ground.epoch!=frame.guideEpoch||ground.handle!=frame.sample.selection.handle||ground.actor!=frame.actor||
+#endif
+           !ktvault::immediateTakeoff(contact,ground.position,now-ground.tick)) return ktvault::Result::Ground;
+        trialUsedTakeoff=true;
+    }
+#ifdef KT_LEDGE_REPEATABLE
+    ktcapsule::Corridor route;
+    if(!ktvault::approachRoute(*ktvault::wallFor(frame.sample.selection.handle),contact.position,frame.sample.direction,
+                              route,frame.sample.recoveredLookup))
+        return ktvault::Result::Position;
+    return ktvault::checkClearance(gameBase,actor,route);
+#else
+    return ktvault::checkClearance(gameBase,actor);
+#endif
+}
+bool releaseTrial(Frame& frame,void* actor,const ktledge::Selection& selection) {
+    if(!trialCandidate(frame,selection)||frame.trialReleased||!frame.trialInput) return false;
+#ifdef KT_LEDGE_REPEATABLE
+    if(!ktvault::claimCooldown(nextTrial,GetTickCount64())) {
+        frame.sample.climbGate="cooldown";
+        return false;
+    }
+#else
+    auto expiry=trialDeadline.load();
+    if(!expiry||GetTickCount64()>expiry||!trialDeadline.compare_exchange_strong(expiry,0)) return false;
+#endif
+    const auto result=trialClearance(frame,actor);
+    trialResult=static_cast<unsigned>(result);
+#ifdef KT_LEDGE_REPEATABLE
+    constexpr const char* GateNames[]={"not_run","physical","ground","stance","approach","clearance","released"};
+    frame.sample.climbGate=GateNames[static_cast<unsigned>(result)];
+#endif
+    frame.trialReleased=result==ktvault::Result::Released
+#ifdef KT_LEDGE_REPEATABLE
+        &&activeGuide(frame.guideEpoch)
+#endif
+        ;
+    return frame.trialReleased;
+}
+#endif
 void __fastcall observedSelection(void* actor,ktledge::Selection* output,bool alternate) {
     const auto caller=reinterpret_cast<std::uintptr_t>(_ReturnAddress());
     ++inFlight;++calls[1];Frame* f=nullptr;bool own=false,normal=false,muted=false;
@@ -245,6 +503,9 @@ void __fastcall observedSelection(void* actor,ktledge::Selection* output,bool al
             if(f) {++f->sample.selections;f->sample.allowAlternate=alternate;}
         }
         if(!f) muted=suppressNested();
+#ifdef KT_LEDGE_DRY_SELECTION
+        if(f) f->previewActive=true;
+#endif
         originalSelection(actor,output,alternate);normal=true;
         if(f) {
             std::uint32_t id=0;
@@ -252,7 +513,29 @@ void __fastcall observedSelection(void* actor,ktledge::Selection* output,bool al
             if(!f->sample.selectionKnown) ++unreadable;
             f->sample.selectionTick=ticks();
         }
+#ifdef KT_LEDGE_DRY_SELECTION
+        // Only the pinned, scoped selector may see the fixture. Its caller
+        // receives the ordinary refusal pair before creating an action.
+#ifdef KT_LEDGE_LIVE_TRIAL
+        if(f&&!f->trialInput) rememberGround(*f,actor,f->sample.selection);
+#endif
+        if(f&&ktledge::dryQueryResult(output->handle)!=output->handle) {
+#ifdef KT_LEDGE_LIVE_TRIAL
+            if(!f->sample.selectionKnown||!releaseTrial(*f,actor,*output))
+#endif
+            {
+            *output=ktledge::Selection{};
+            ++withheldSelections;
+            }
+        }
+#endif
     } __finally {
+#ifdef KT_LEDGE_DRY_SELECTION
+        if(f) f->previewActive=false;
+#endif
+#ifdef KT_LEDGE_TALL_PREVIEW
+        if(f) {f->tallQuery=false;f->tallExtended=false;}
+#endif
         if(f) {f->sample.exceptional|=!normal;if(own) leave(f,normal);}
         if(muted) --stack.suppressed;
         --inFlight;
@@ -274,10 +557,111 @@ std::uint32_t* __fastcall observedQuery(void* manager,std::uint32_t* output,cons
             f->sample.queryKnown=f->sample.queryInputsKnown&&readHandle(output,f->sample.queryHandle);
             f->sample.queryReturnMatches=result==output;f->sample.queryTick=ticks();
             if(!f->sample.queryKnown) ++unreadable;
+#ifdef KT_LEDGE_REPEATABLE
+            auto& sample=f->sample;
+            if(f->previewActive&&sample.scope==0&&sample.queries==1&&sample.queryKnown&&
+               sample.queryReturnMatches&&sample.queryHandle==ktledge::NoGuide&&
+               activeGuide(f->guideEpoch)&&ktvault::tallRetryInRange(sample.position,sample.direction)) {
+                sample.retryLookup=true;
+                std::uint32_t retry=ktledge::NoGuide;
+                const auto returned=originalQuery(manager,&retry,ktvault::TallLookupAnchor,ktvault::TallLookupDirection,a,b,c,d);
+                if(returned==&retry&&retry==ktvault::Handle&&activeGuide(f->guideEpoch)) {
+                    *output=retry;
+                    sample.queryHandle=retry;
+                    sample.recoveredLookup=true;
+                }
+                sample.queryTick=ticks();
+            }
+#endif
         }
+#ifdef KT_LEDGE_DRY_GUARD
+        // The native wrapper returns its caller-owned output synchronously.
+        // Keep the raw result in the audit, then suppress the fixture before
+        // either caller sees it. The guard stays active if recording stops.
+        const auto raw=*output;
+        const auto permitted=ktledge::dryQueryResult(raw);
+        if(permitted!=raw) {
+#ifdef KT_LEDGE_DRY_SELECTION
+            if(!f||!f->previewActive||!f->sample.queryInputsKnown||!dryActivations.load()
+#ifdef KT_LEDGE_REPEATABLE
+               ||!activeGuide(f->guideEpoch)
+#endif
+               )
+#endif
+            {*output=permitted;++guardedQueries;}
+#ifdef KT_LEDGE_TALL_PREVIEW
+            else f->tallQuery=(raw>>16)==ktledge::DryGuideObject;
+#endif
+        }
+#endif
     } __finally {if(f) f->sample.exceptional|=!normal;if(muted) --stack.suppressed;--inFlight;}
     return result;
 }
+#ifdef KT_LEDGE_TALL_PREVIEW
+void* __fastcall observedParams(void* bank,std::uint32_t profile) {
+    const auto caller=reinterpret_cast<std::uintptr_t>(_ReturnAddress());
+    ++inFlight;
+    void* result=nullptr;
+    __try {
+        result=originalParams(bank,profile);
+        auto* frame=current();
+        if(result&&callerMatches(caller,kttall::SelectorReturn)&&frame&&frame->previewActive&&
+           frame->tallQuery&&guardedRead(result,frame->tallParams)&&kttall::extendHeight(frame->tallParams)) {
+            result=frame->tallParams;
+            frame->tallExtended=true;
+            ++tallClones;
+        }
+    } __finally {--inFlight;}
+    return result;
+}
+#endif
+#ifdef KT_LEDGE_DRY_GUARD
+ktledge::DryIndexResult enableOwnedGuide(void* manager,bool allowEnabled=false) {
+    using Result=ktledge::DryIndexResult;
+    __try {
+        if(!manager||manager!=*reinterpret_cast<void**>(gameBase+ktledge::ManagerGlobalRva)) return Result::Manager;
+        auto* bytes=static_cast<unsigned char*>(manager);
+        if(bytes[0x60028]) return Result::Editor;
+        auto* ledges=*reinterpret_cast<unsigned char**>(bytes);
+        auto* markers=*reinterpret_cast<const unsigned char**>(bytes+8);
+        const auto result=ktledge::checkDryMember(ledges,*reinterpret_cast<unsigned*>(bytes+0x10),
+                                                  markers,*reinterpret_cast<unsigned*>(bytes+0x14),allowEnabled);
+        if(result!=Result::Matched) return result;
+        // The installed member stays inactive. Only the original index builder
+        // sees this verified fixture bit after all of the dry guard hooks exist.
+        for(unsigned index=0;index<ktledge::DryGuideCount;++index)
+            memcpy(ledges+(ktledge::DryGuideObject+index)*ktledge::LedgeSize+8,
+                   &ktledge::DrySideFlags,sizeof ktledge::DrySideFlags);
+        return Result::Matched;
+    } __except(EXCEPTION_EXECUTE_HANDLER) {return Result::Fault;}
+}
+
+void __fastcall guardedIndex(void* manager) {
+    const auto address=reinterpret_cast<std::uintptr_t>(_ReturnAddress());
+    ++inFlight;
+    __try {
+        using Result=ktledge::DryIndexResult;
+#ifdef KT_LEDGE_REPEATABLE
+        const auto epoch=++indexEpoch;
+        activeEpoch=0;
+#endif
+        const auto result=!activationArmed.load()?Result::ArmedOff:
+#ifdef KT_LEDGE_REPEATABLE
+            address!=gameBase+ktguide::IndexReturn?Result::Caller:enableOwnedGuide(manager,true);
+#else
+            address!=gameBase+ktguide::IndexReturn?Result::Caller:enableOwnedGuide(manager);
+#endif
+        ++dryIndexResults[static_cast<unsigned>(result)];
+        originalIndex(manager);
+        if(result==Result::Matched) {
+            ++dryActivations;
+#ifdef KT_LEDGE_REPEATABLE
+            if(activationArmed&&epoch==indexEpoch.load()) activeEpoch=epoch;
+#endif
+        }
+    } __finally {--inFlight;}
+}
+#endif
 std::uint8_t __fastcall observedFramework(void* framework,void* holder) {
     const auto caller=reinterpret_cast<std::uintptr_t>(_ReturnAddress());
     ++inFlight;++calls[3];Frame* f=nullptr;std::uint8_t result=0;bool normal=false,muted=false;
@@ -293,7 +677,23 @@ std::uint8_t __fastcall observedFramework(void* framework,void* holder) {
         if(!f) muted=suppressNested();
         // The smart pointer may release/destroy the action here. Its request was
         // copied before this call; never read the action again after return.
-        result=originalFramework(framework,holder);normal=true;
+#ifdef KT_LEDGE_LIVE_TRIAL
+        if(f&&f->trialReleased) {
+            if(f->sample.requestKnown&&f->sample.request.selection.actionType==4&&
+#ifdef KT_LEDGE_REPEATABLE
+               f->sample.request.selection.handle==f->sample.selection.handle&&
+               f->sample.frameworks==1&&activeGuide(f->guideEpoch)
+#else
+               f->sample.request.selection.handle==ktvault::Handle&&f->sample.frameworks==1
+#endif
+               ) {
+                ++trialFrameworkForwards;
+                result=originalFramework(framework,holder);
+            }
+        } else
+#endif
+        {result=originalFramework(framework,holder);}
+        normal=true;
         if(f) {f->sample.frameworkByte=result;f->sample.frameworkReturned=true;f->sample.frameworkTick=ticks();}
     } __finally {if(f) f->sample.exceptional|=!normal;if(muted) --stack.suppressed;--inFlight;}
     return result;
@@ -328,7 +728,25 @@ bool writeLine(const char* line) {
 }
 bool writeHeader() {
     LARGE_INTEGER frequency;QueryPerformanceFrequency(&frequency);
-    char header[512];sprintf_s(header,"{\"event\":\"started\",\"mode\":\"observe-only\",\"probe\":\"ledge-admission\",\"probe_revision\":4,\"qpc_frequency\":%lld,\"record_limit\":%u,\"max_depth\":%u,\"hook_count\":4,\"motion_compiled\":false}\n",frequency.QuadPart,MaxRecords,MaxDepth);
+#if defined(KT_LEDGE_REPEATABLE)
+    constexpr const char* Mode="repeatable-tall-vault";
+#elif defined(KT_LEDGE_LIVE_TRIAL) && defined(KT_LEDGE_TALL_PREVIEW)
+    constexpr const char* Mode="bounded-tall-vault";
+#elif defined(KT_LEDGE_LIVE_TRIAL)
+    constexpr const char* Mode="bounded-vault-onto";
+#elif defined(KT_LEDGE_TALL_PREVIEW)
+    constexpr const char* Mode="dry-tall-preview";
+#elif defined(KT_LEDGE_DRY_GUARD)
+    constexpr const char* Mode="dry-guide-guard";
+#else
+    constexpr const char* Mode="observe-only";
+#endif
+#ifdef KT_LEDGE_DRY_SELECTION
+    constexpr const char* Preview=",\"selection_preview\":true";
+#else
+    constexpr const char* Preview="";
+#endif
+    char header[512];sprintf_s(header,"{\"event\":\"started\",\"mode\":\"%s\",\"probe\":\"ledge-admission\",\"probe_revision\":4,\"qpc_frequency\":%lld,\"record_limit\":%u,\"max_depth\":%u,\"hook_count\":%u,\"motion_compiled\":false%s}\n",Mode,frequency.QuadPart,MaxRecords,MaxDepth,HookCount,Preview);
     return writeLine(header);
 }
 void vectorJson(const float* v,char (&out)[128]) {sprintf_s(out,"[%.9g,%.9g,%.9g]",v[0],v[1],v[2]);}
@@ -354,6 +772,18 @@ DWORD WINAPI writer(void*) {
                 s.transaction,s.scope?"selection_only":"standing_attempt",s.thread,s.entity,s.depth,s.begin,s.end,s.queryTick,s.selectionTick,s.frameworkTick,
                 s.completed?"true":"false",s.exceptional?"true":"false",s.queries,s.selections,s.frameworks,s.selections?(s.allowAlternate?"true":"false"):"null",position,direction,bounds,query,
                 s.queryReturnMatches?"true":"false",selection,request,GuardNames[static_cast<unsigned>(s.requestGuard)],s.requestGuardBits,vtableKind(s),vtableRva,componentKind(s),componentRva,requestMatches(s)?"true":"false",attemptValue,frameworkValue,accepted,stage(s));
+#ifdef KT_LEDGE_REPEATABLE
+            if(s.climbGate||s.retryLookup) {
+                line[strlen(line)-2]=0;
+                if(s.climbGate) {
+                    char field[80];sprintf_s(field,",\"climb_gate\":\"%s\"",s.climbGate);
+                    strcat_s(line,field);
+                }
+                if(s.retryLookup)
+                    strcat_s(line,s.recoveredLookup?",\"tall_lookup_retry\":\"matched\"":",\"tall_lookup_retry\":\"refused\"");
+                strcat_s(line,"}\n");
+            }
+#endif
             writeLine(line);
         }
         if(stopping.load()) break;Sleep(20);
@@ -367,7 +797,40 @@ DWORD WINAPI writer(void*) {
     for(unsigned i=0;i<static_cast<unsigned>(RequestGuard::Count);++i) {
         char field[128];sprintf_s(field,"%s\"%s\":%llu",i?",":"",GuardNames[i],requestGuards[i].load());strcat_s(line,field);
     }
-    strcat_s(line,"}}\n");
+    strcat_s(line,"}");
+#ifdef KT_LEDGE_DRY_GUARD
+    char field[128];sprintf_s(field,",\"dry_activations\":%u,\"guarded_queries\":%u,\"guard_remains_armed\":true",
+        dryActivations.load(),guardedQueries.load());
+    strcat_s(line,field);
+    strcat_s(line,",\"dry_index_results\":{");
+    for(unsigned i=0;i<static_cast<unsigned>(ktledge::DryIndexResult::Count);++i) {
+        sprintf_s(field,"%s\"%s\":%u",i?",":"",ktledge::DryIndexNames[i],dryIndexResults[i].load());
+        strcat_s(line,field);
+    }
+    strcat_s(line,"}");
+#ifdef KT_LEDGE_DRY_SELECTION
+    sprintf_s(field,",\"withheld_selections\":%u",withheldSelections.load());
+    strcat_s(line,field);
+#endif
+#ifdef KT_LEDGE_LIVE_TRIAL
+#ifdef KT_LEDGE_REPEATABLE
+    sprintf_s(field,",\"repeatable\":true,\"trial_result\":%u,\"trial_framework_forwards\":%u",
+        trialResult.load(),trialFrameworkForwards.load());
+#else
+    sprintf_s(field,",\"trial_armed\":%s,\"trial_result\":%u,\"trial_framework_forwards\":%u",
+        trialArmedOnce?"true":"false",trialResult.load(),trialFrameworkForwards.load());
+#endif
+    strcat_s(line,field);
+    sprintf_s(field,",\"trial_ground_samples\":%u,\"trial_used_takeoff\":%s",
+        trialGroundSamples.load(),trialUsedTakeoff?"true":"false");
+    strcat_s(line,field);
+#endif
+#ifdef KT_LEDGE_TALL_PREVIEW
+    sprintf_s(field,",\"tall_parameter_clones\":%u",tallClones.load());
+    strcat_s(line,field);
+#endif
+#endif
+    strcat_s(line,"}\n");
     if(!writeFailed.load()) writeLine(line);FlushFileBuffers(logFile);return 0;
 }
 bool disableHooks() {
@@ -400,14 +863,36 @@ extern "C" __declspec(dllexport) DWORD WINAPI KtProbeStart(void*) {
     if(logFile==INVALID_HANDLE_VALUE) return GetLastError();
     if(!writeHeader()) {CloseHandle(logFile);logFile=INVALID_HANDLE_VALUE;return ERROR_WRITE_FAULT;}
     if(MH_Initialize()!=MH_OK) {CloseHandle(logFile);logFile=INVALID_HANDLE_VALUE;return ERROR_INVALID_FUNCTION;}
-    void* callbacks[]={reinterpret_cast<void*>(&observedAttempt),reinterpret_cast<void*>(&observedSelection),reinterpret_cast<void*>(&observedQuery),reinterpret_cast<void*>(&observedFramework)};
-    void** originals[]={reinterpret_cast<void**>(&originalAttempt),reinterpret_cast<void**>(&originalSelection),reinterpret_cast<void**>(&originalQuery),reinterpret_cast<void**>(&originalFramework)};
+    void* callbacks[]={reinterpret_cast<void*>(&observedAttempt),reinterpret_cast<void*>(&observedSelection),reinterpret_cast<void*>(&observedQuery),reinterpret_cast<void*>(&observedFramework)
+#ifdef KT_LEDGE_DRY_GUARD
+        ,reinterpret_cast<void*>(&guardedIndex)
+#endif
+#ifdef KT_LEDGE_TALL_PREVIEW
+        ,reinterpret_cast<void*>(&observedParams)
+#endif
+    };
+    void** originals[]={reinterpret_cast<void**>(&originalAttempt),reinterpret_cast<void**>(&originalSelection),reinterpret_cast<void**>(&originalQuery),reinterpret_cast<void**>(&originalFramework)
+#ifdef KT_LEDGE_DRY_GUARD
+        ,reinterpret_cast<void**>(&originalIndex)
+#endif
+#ifdef KT_LEDGE_TALL_PREVIEW
+        ,reinterpret_cast<void**>(&originalParams)
+#endif
+    };
+    std::uintptr_t rvas[]={ktledge::AttemptRva,ktledge::SelectionRva,ktledge::QueryRva,ktledge::FrameworkRva
+#ifdef KT_LEDGE_DRY_GUARD
+        ,ktguide::Hooks[2].rva
+#endif
+#ifdef KT_LEDGE_TALL_PREVIEW
+        ,kttall::ParamsRva
+#endif
+    };
     unsigned created=0;
-    for(;created<4;++created) {
-        targets[created]=reinterpret_cast<void*>(gameBase+ktledge::Hooks[created].rva);
+    for(;created<HookCount;++created) {
+        targets[created]=reinterpret_cast<void*>(gameBase+rvas[created]);
         if(MH_CreateHook(targets[created],callbacks[created],originals[created])!=MH_OK) break;
     }
-    if(created!=4) {
+    if(created!=HookCount) {
         for(unsigned i=0;i<created;++i) MH_RemoveHook(targets[i]);MH_Uninitialize();
         CloseHandle(logFile);logFile=INVALID_HANDLE_VALUE;return ERROR_INVALID_FUNCTION;
     }
@@ -426,15 +911,36 @@ extern "C" __declspec(dllexport) DWORD WINAPI KtProbeStart(void*) {
         if(disableHooks()) drainWriter();
         return ERROR_INVALID_FUNCTION;
     }
+#ifdef KT_LEDGE_DRY_GUARD
+    activationArmed=true;
+#endif
     return ERROR_SUCCESS;
 }
 extern "C" __declspec(dllexport) DWORD WINAPI KtProbeStop(void*) {
     if(stopBusy.exchange(true)) return ERROR_ALREADY_INITIALIZED;
     if(!writerThread) {stopBusy=false;return ERROR_NOT_READY;}
     recording=false;
+#ifdef KT_LEDGE_DRY_GUARD
+    // Finish the audit while keeping the query guard resident until game exit.
+    activationArmed=false;
+#ifdef KT_LEDGE_REPEATABLE
+    activeEpoch=0;
+#elif defined(KT_LEDGE_LIVE_TRIAL)
+    trialDeadline=0;
+#endif
+#else
     if(!disableHooks()) {stopBusy=false;return ERROR_INVALID_FUNCTION;}
+#endif
     const auto result=drainWriter();stopBusy=false;return result;
 }
+#if defined(KT_LEDGE_LIVE_TRIAL) && !defined(KT_LEDGE_REPEATABLE)
+extern "C" __declspec(dllexport) DWORD WINAPI KtProbeArm(void*) {
+    if(!recording||!activationArmed||dryActivations.load()!=1) return ERROR_NOT_READY;
+    if(trialArmedOnce.exchange(true)) return ERROR_ALREADY_INITIALIZED;
+    trialDeadline=GetTickCount64()+30000;
+    return ERROR_SUCCESS;
+}
+#endif
 BOOL WINAPI DllMain(HINSTANCE instance,DWORD reason,void*) {
     if(reason==DLL_PROCESS_ATTACH) {ownModule=instance;DisableThreadLibraryCalls(instance);}
     return TRUE;

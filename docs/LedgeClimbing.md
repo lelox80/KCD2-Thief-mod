@@ -1,5 +1,7 @@
 # Ledge climbing: first playable plan
 
+Next implementation boundary,2026-11-02: the ordinary native member producer/serializer/index baseline passes in retail with matching counts and all three typed fingerprints. Observer shutdown and three-entry restoration are independently verified; no repeated load is needed. Physical-source attribution and a reversible no-op mount are next. No Jump or geometry repeat; no added guide or climb. Continue toward higher walls after physical-source attribution, ordinary guide lifetime, whole-body clearance and suitable host action/motion are proved. [Loading contract and manual procedure](NativeGuideLoading.md).
+
 
 ## Current runtime - v0.0.21 wall candidate verified
 

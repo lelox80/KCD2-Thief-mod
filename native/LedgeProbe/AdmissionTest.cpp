@@ -38,21 +38,67 @@ unsigned testMode=0;
 thread_local bool stackArgumentsSeen=false,opaqueArgumentsSeen=false,holderSeen=false;
 constexpr std::uintptr_t Opaque1=0x1020304050607080ull,Opaque3=0x8877665544332211ull,Restriction=0x0abc1234ffffull;
 std::uint32_t alternateOutput=0;
+#ifdef KT_LEDGE_TALL_PREVIEW
+void* __fastcall targetParams(void* bank,std::uint32_t) {return bank;}
+#endif
 __declspec(noinline) std::uint32_t* __fastcall targetQuery(void* m,std::uint32_t* output,const float* position,
                                                         const float* direction,float a,float b,float c,float d) {
     ++forwarded[2];
     stackArgumentsSeen=m==manager&&position[0]==3158.25f&&direction[1]==1&&a==1.6f&&b==0.7f&&c==0.8f&&d==0.5f;
     if(testMode==7) RaiseException(0xe04b7401,0,0,nullptr);
     *output=testMode==1?0xffffffffu:0x02d10000u;
+#ifdef KT_LEDGE_DRY_GUARD
+    if(testMode==15||testMode==16) *output=(ktledge::DryGuideObject<<16)|(testMode==16?1u:0u);
+#endif
+#ifdef KT_LEDGE_LIVE_TRIAL
+    if(testMode==17) *output=ktvault::Handle;
+#ifdef KT_LEDGE_REPEATABLE
+    if(testMode==18) *output=ktvault::Walls[1].handle;
+    if(testMode>=19&&testMode<=22) {
+        const bool retry=position==ktvault::TallLookupAnchor&&direction==ktvault::TallLookupDirection;
+        if(testMode==21) *output=0x02d10000u;
+        else if(!retry) *output=ktledge::NoGuide;
+        else if(testMode==19) *output=ktvault::Handle;
+        else if(testMode==20) *output=0x02d10000u;
+        else *output=ktvault::Handle|1u;
+    }
+#endif
+#endif
     return testMode==6?&alternateOutput:output;
 }
 __declspec(noinline) void __fastcall targetSelection(void* actor,ktledge::Selection* output,bool alternate) {
     ++forwarded[1];check(alternate,"alternate flag forwarded");
-    const float position[]={3158.25f,542.5f,46.75f},direction[]={0,1,0};std::uint32_t handle=0xffffffffu;
+    float position[]={3158.25f,542.5f,46.75f},direction[]={0,1,0};std::uint32_t handle=0xffffffffu;
+#if defined(KT_LEDGE_LIVE_TRIAL) && defined(KT_LEDGE_TALL_PREVIEW)
+    if(testMode==17) {direction[0]=ktvault::Facing.x;direction[1]=ktvault::Facing.y;}
+#endif
+#ifdef KT_LEDGE_REPEATABLE
+    if(testMode>=19&&testMode<=22) {
+        // Recorded lateral miss at a distance where the center worked.
+        const float recorded[]={2896.24243f,793.874939f,65.3354263f};
+        memcpy(position,recorded,sizeof recorded);
+        memcpy(direction,ktvault::TallLookupDirection,sizeof direction);
+    }
+#endif
     ktledge::QueryFn volatile query=&targetQuery;
     query(manager,&handle,position,direction,1.6f,0.7f,0.8f,0.5f);
     if(testMode==8) throw 19;
     output->actionType=testMode==2||handle==0xffffffffu?-1:2;output->handle=handle;
+#ifdef KT_LEDGE_LIVE_TRIAL
+    const bool liveTall=(testMode==17||testMode==19)&&handle==ktvault::Handle;
+    if(liveTall) output->actionType=4;
+#ifdef KT_LEDGE_REPEATABLE
+    if(testMode==18&&handle==ktvault::Walls[1].handle) output->actionType=4;
+#endif
+#endif
+#if defined(KT_LEDGE_LIVE_TRIAL) && defined(KT_LEDGE_TALL_PREVIEW)
+    if(liveTall) {
+        unsigned char stock[kttall::ParamsSize]{};
+        const float max=1.5f;
+        memcpy(stock+kttall::VaultOntoMax,&max,sizeof max);
+        observedParams(stock,0);
+    }
+#endif
     if(testMode==12) { // Nested foreign owner must never borrow this transaction.
         ktledge::Selection other;ktledge::SelectionFn volatile nested=&targetSelection;
         const auto prior=testMode;testMode=0;nested(nullptr,&other,true);testMode=prior;
@@ -88,7 +134,7 @@ Sample run(Owner& owner,unsigned mode) {
     resetQueue();testMode=mode;fixtureCallers=true;
     ktledge::AttemptFn volatile attempt=&targetAttempt;
     const auto value=attempt(Opaque1,owner.actor,Opaque3,Restriction,owner.actor);
-    check(value==(mode==13?9:mode==1||mode==2?0:1),"host attempt byte preserved");
+    check(value==(mode==13?9:mode==1||mode==2||mode==15||mode==16?0:1),"host attempt byte preserved");
     check(inFlight==0&&stack.depth==0&&stack.suppressed==0,"transaction stack drained");
     Sample s;check(queue.pop(s)&&!queue.pop(s),"one complete outer transaction");
     check(s.scope==0&&s.entity==73&&s.depth==1&&s.queries==1&&s.selections==1,"query and selection nested in exact actor transaction");
@@ -101,10 +147,84 @@ bool catchSeh(Owner& owner,unsigned mode) {
     __except(GetExceptionCode()==0xe04b7401?EXCEPTION_EXECUTE_HANDLER:EXCEPTION_CONTINUE_SEARCH) {return true;}
 }
 int main() {
+#ifdef KT_LEDGE_TALL_PREVIEW
+    {
+        unsigned char block[kttall::ParamsSize]{};
+        kttall::ParamBlock copy{};
+        const float stock=1.5f;
+        memcpy(block+kttall::VaultOntoMax,&stock,sizeof stock);
+        check(guardedRead(block,copy)&&kttall::extendHeight(copy),"stock height copied and extended");
+        check(!kttall::extendHeight(copy),"unexpected maximum refused");
+        memcpy(reinterpret_cast<unsigned char*>(copy)+kttall::VaultOntoMax,&stock,sizeof stock);
+        check(!memcmp(block,copy,sizeof block),"only VaultOnto allowed maximum changed");
+        originalParams=targetParams;
+        fixtureCallers=true;
+        check(observedParams(block,0)==block,"unscoped lookup preserves stock pointer");
+        stack.depth=1;
+        stack.frame[0].previewActive=true;
+        check(observedParams(block,0)==block,"base lookup preserves stock pointer");
+        stack.frame[0].tallQuery=true;
+        const auto scoped=observedParams(block,0);
+        check(scoped==stack.frame[0].tallParams&&tallClones==1,"fixture scope receives the temporary copy");
+        float original=0;
+        memcpy(&original,block+kttall::VaultOntoMax,sizeof original);
+        check(original==stock,"stock bank untouched");
+        stack=FrameStack{};
+        fixtureCallers=false;
+    }
+#endif
     check(KtProbeStart(nullptr)==ERROR_MOD_NOT_FOUND,"absent game fails closed");
     check(KtProbeStart(nullptr)==ERROR_ALREADY_INITIALIZED,"one initialization attempt");
     check(KtProbeStop(nullptr)==ERROR_NOT_READY,"stop before start");
     gameBase=reinterpret_cast<std::uintptr_t>(&manager)-ktledge::ManagerGlobalRva;
+#ifdef KT_LEDGE_DRY_GUARD
+    {
+        std::vector<unsigned char> header(0x60029),ledges(ktledge::DryLedgeCount*16),markers(ktledge::DryMarkerCount*28);
+        FILE* source=nullptr;
+        check(!fopen_s(&source,"dry-member-fixture.bin","rb"),"pinned member fixture available");
+        check(fread(ledges.data(),1,ledges.size(),source)==ledges.size()&&
+            fread(markers.data(),1,markers.size(),source)==markers.size()&&fgetc(source)==EOF,
+            "pinned member fixture read exactly");
+        fclose(source);
+        ptr(header.data(),0,reinterpret_cast<std::uintptr_t>(ledges.data()));
+        ptr(header.data(),8,reinterpret_cast<std::uintptr_t>(markers.data()));
+        id(header.data(),0x10,ktledge::DryLedgeCount);id(header.data(),0x14,ktledge::DryMarkerCount);
+        using IndexResult=ktledge::DryIndexResult;
+        check(enableOwnedGuide(header.data())==IndexResult::Manager,"foreign manager cannot enable fixture");
+        manager=header.data();
+        header[0x60028]=1;
+        check(enableOwnedGuide(manager)==IndexResult::Editor,"editor manager cannot enable fixture");
+        header[0x60028]=0;
+        markers.back()^=1;
+        check(ktledge::checkDryMember(ledges.data(),ktledge::DryLedgeCount,markers.data(),ktledge::DryMarkerCount)==IndexResult::Matched,
+            "native marker padding does not affect identity");
+        markers[0]^=1;
+        check(enableOwnedGuide(manager)==IndexResult::Markers,"changed marker data refuses fixture");
+        markers[0]^=1;
+        const auto before=ledges;
+        check(enableOwnedGuide(manager)==IndexResult::Matched&&enableOwnedGuide(manager)==IndexResult::Tail,
+            "owned inactive fixture enables once");
+#ifdef KT_LEDGE_REPEATABLE
+        check(enableOwnedGuide(manager,true)==IndexResult::Matched,"same enabled member can rebuild");
+        activationArmed=true;
+        indexEpoch=activeEpoch=1;
+        check(activeGuide(1)&&!activeGuide(2),"only the indexed member generation is active");
+        markers[(ktledge::DryMarkerCount-1)*28]^=1;
+        check(!activeGuide(1)&&enableOwnedGuide(manager,true)==IndexResult::Markers,
+            "changed active marker is refused");
+        markers[(ktledge::DryMarkerCount-1)*28]^=1;
+#endif
+        for(unsigned index=0;index<ktledge::DryGuideCount;++index) {
+            const auto offset=(ktledge::DryGuideObject+index)*ktledge::LedgeSize+8;
+            std::uint16_t flags=0;
+            memcpy(&flags,ledges.data()+offset,sizeof flags);
+            check(flags==ktledge::DrySideFlags,"exact 16-bit side flags");
+            memcpy(ledges.data()+offset,before.data()+offset,sizeof flags);
+        }
+        check(ledges==before,"activation changes only owned guide side flags");
+        manager=managerStorage;
+    }
+#endif
     Owner owner(73);std::uint32_t entity=0;
     check(ownerId(owner.actor,entity)&&entity==73,"complete actor owner chain");
     id(owner.entity,0xc,74);check(!ownerId(owner.actor,entity),"reused/mismatched identity refused");id(owner.entity,0xc,73);
@@ -207,6 +327,131 @@ int main() {
     check(sample.queryTick<=sample.selectionTick&&sample.selectionTick<=sample.frameworkTick&&sample.frameworkTick<=sample.end,"nested observation ordering");
     const Sample missingNative=run(owner,1);
     check(!strcmp(stage(missingNative),"no_query_handle"),"raw manager miss distinguished");
+#ifdef KT_LEDGE_DRY_GUARD
+#ifdef KT_LEDGE_DRY_SELECTION
+    dryActivations=1;
+#endif
+    for(unsigned mode=15;mode<=16;++mode) {
+        const auto blocked=run(owner,mode);
+        const auto expected=(ktledge::DryGuideObject<<16)|(mode-15);
+#ifdef KT_LEDGE_DRY_SELECTION
+        check(blocked.queryHandle==expected&&blocked.selection.handle==expected&&
+            blocked.selection.actionType==2&&!blocked.frameworks&&!blocked.attemptByte,
+            "native choice observed and withheld before the attempt can create an action");
+#else
+        check(blocked.queryHandle==expected&&
+            blocked.selection.handle==ktledge::NoGuide&&blocked.selection.actionType==-1&&!blocked.frameworks,
+            "either side is observed and withheld before selection");
+#endif
+    }
+#ifdef KT_LEDGE_DRY_SELECTION
+    check(withheldSelections==2,"both preview results were withheld");
+#endif
+    recording=false;
+    fixtureCallers=false;
+    testMode=16;
+    const float position[]={3158.25f,542.5f,46.75f},direction[]={0,1,0};
+    std::uint32_t guarded=0;
+    ktledge::QueryFn volatile dryQuery=&targetQuery;
+    check(dryQuery(manager,&guarded,position,direction,1.6f,0.7f,0.8f,0.5f)==&guarded&&guarded==ktledge::NoGuide,
+        "guard remains active outside observation and preserves output pointer");
+#endif
+#ifdef KT_LEDGE_LIVE_TRIAL
+    {
+        resetQueue();
+        fixtureCallers=true;
+        fixtureClearance=true;
+        activationArmed=true;
+        testMode=17;
+        unsigned char idle[]={0,0},jump[]={1,0};
+        ktledge::AttemptFn volatile trial=&targetAttempt;
+#ifdef KT_LEDGE_REPEATABLE
+        const auto attempt=[&](unsigned char* input) {return trial(Opaque1,owner.actor,Opaque3,Restriction,input);};
+        check(attempt(jump)==0,"held Jump entering a level does not climb");
+        check(attempt(idle)==0&&attempt(jump)==1&&trialFrameworkForwards==1,
+            "first fresh Jump reaches the original framework");
+        check(attempt(jump)==0&&attempt(idle)==0&&attempt(jump)==0&&trialFrameworkForwards==1,
+            "held Jump and immediate reentry are refused");
+        recording=false;
+        nextTrial=0;
+        check(attempt(idle)==0&&attempt(jump)==1&&trialFrameworkForwards==2,
+            "fresh Jump can climb again after audit stops");
+        activeEpoch=0;
+        nextTrial=0;
+        check(attempt(idle)==0&&attempt(jump)==0&&trialFrameworkForwards==2,
+            "invalidated index refuses climb");
+        indexEpoch=activeEpoch=2;
+        check(attempt(jump)==0&&attempt(idle)==0&&attempt(jump)==1&&trialFrameworkForwards==3,
+            "matched replacement index requires a fresh Jump");
+        testMode=18;
+        nextTrial=0;
+        const auto tallBefore=tallClones.load();
+        check(attempt(idle)==0&&attempt(jump)==1&&trialFrameworkForwards==4&&tallClones==tallBefore,
+            "second wall uses stock height and forwards its own exact request");
+        testMode=19;
+        nextTrial=0;
+        const auto queriesBefore=forwarded[2].load();
+        check(attempt(idle)==0&&attempt(jump)==1&&trialFrameworkForwards==5&&forwarded[2]==queriesBefore+4,
+            "one native retry per callback can recover a previously missed tall wall");
+        for(unsigned mode:{20u,22u}) {
+            testMode=mode;
+            nextTrial=0;
+            check(attempt(idle)==0&&attempt(jump)==0&&trialFrameworkForwards==5,
+                "retry discards foreign guides and the wrong side of the owned guide");
+        }
+        testMode=21;
+        const auto beforeStock=forwarded[2].load();
+        check(attempt(idle)==1&&attempt(jump)==1&&trialFrameworkForwards==5&&forwarded[2]==beforeStock+2,
+            "stock first lookup keeps its result and skips retry");
+        const float farMiss[]={2896.55762f,794.643311f,65.3663635f};
+        const float sideMiss[]={2896.24243f,793.874939f,65.3354263f};
+        const float closeMiss[]={2895.81836f,794.879333f,65.4591522f};
+        const float tooFar[]={2897.1f,794.64f,65.37f};
+        const float facingAway[]={-ktvault::Facing.x,-ktvault::Facing.y,0};
+        check(ktvault::tallRetryInRange(farMiss,ktvault::TallLookupDirection)&&
+              ktvault::tallRetryInRange(sideMiss,ktvault::TallLookupDirection)&&
+              ktvault::tallRetryInRange(closeMiss,ktvault::TallLookupDirection),
+              "far, lateral and close misses reach the bounded retry");
+        check(!ktvault::tallRetryInRange(tooFar,ktvault::TallLookupDirection)&&
+              !ktvault::tallRetryInRange(sideMiss,facingAway),"distant and reverse lookups never retry");
+        for(const auto& wall:ktvault::Walls) {
+            const auto facing=wall.facing;
+            const float straight[]={facing.x,facing.y,0},away[]={-facing.x,-facing.y,0};
+            const auto start=wall.corridor.approach;
+            const auto lip=wall.lip;
+            ktcapsule::Corridor route;
+            const ktcapsule::Vector closer{lip.x-facing.x*0.5f,lip.y-facing.y*0.5f,start.z};
+            const ktcapsule::Vector farther{lip.x-facing.x*1.2f,lip.y-facing.y*1.2f,start.z};
+            const ktcapsule::Vector outside{closer.x+facing.y*0.6f,closer.y-facing.x*0.6f,start.z};
+            check(ktvault::approachRoute(wall,closer,straight,route)&&
+                  ktvault::approachRoute(wall,farther,straight,route),"closer and farther approaches permitted");
+            check(!ktvault::approachRoute(wall,outside,straight,route)&&
+                  !ktvault::approachRoute(wall,closer,away,route),"off-edge and reverse approaches refused");
+            const ktcapsule::Vector side{closer.x+facing.y*0.2f,closer.y-facing.x*0.2f,start.z};
+            check(ktvault::approachRoute(wall,side,straight,route)&&
+                  std::abs((route.landing.x-lip.x)*facing.y-(route.landing.y-lip.y)*facing.x-0.2f)<0.001f,
+                  "landing follows the aimed lane within the authored strip");
+        }
+#else
+        check(KtProbeArm(nullptr)==0&&KtProbeArm(nullptr)==ERROR_ALREADY_INITIALIZED,"one explicit arm");
+        check(trial(Opaque1,owner.actor,Opaque3,Restriction,idle)==0&&trialDeadline!=0,"idle cannot consume arm");
+        check(trial(Opaque1,owner.actor,Opaque3,Restriction,jump)==1&&trialFrameworkForwards==1&&trialDeadline==0,
+            "exact live selection forwarded through original framework once");
+        check(trial(Opaque1,owner.actor,Opaque3,Restriction,jump)==0&&trialFrameworkForwards==1,
+            "subsequent jump withheld");
+#endif
+        const ktcapsule::Vector previous{10,20,30};
+        ktvault::Contact contact{{10.01f,20.01f,30.03f},false,true};
+        check(ktvault::immediateTakeoff(contact,previous,100)&&
+              !ktvault::immediateTakeoff(contact,previous,101),"takeoff requires fresh ground contact");
+        contact.position.z=30.06f;
+        check(!ktvault::immediateTakeoff(contact,previous,1),"midair rise refused");
+        fixtureClearance=false;
+#ifndef KT_LEDGE_REPEATABLE
+        activationArmed=false;
+#endif
+    }
+#endif
     check(!strcmp(stage(run(owner,2)),"selection_refused"),"manager hit rejected by selector distinguished");
     check(!strcmp(stage(run(owner,3)),"no_framework_request"),"later refusal before framework distinguished");
     check(!strcmp(stage(run(owner,4)),"framework_refused"),"false framework result preserved");

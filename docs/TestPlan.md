@@ -1,5 +1,66 @@
 # Test plan
 
+## Two-wall normal Jump playtest
+
+For the lookup retry build, test the tall wall from the usual spot, a small sidestep, one short step back and a closer approach in the same session. Keep the landing clear and face the wall for each Jump. Check `tall_lookup_retry` and `climb_gate` in the capture. A recovered handle can still be rejected by native selection, live clearance or the action framework.
+
+Start with `python tools/tall_wall.py launch` and the verified `guide-walls` profile. Wait for the ready message and load Kuttenberg. Try the 1.64 m wall from the successful approach, then try roughly one short step back and a small offset to either side. Face the same part of the wall and press Jump once per attempt. Try the 1.02 m raised-pavement wall in the same session. Record positions that succeed, ordinary jumps, and any animation or control issues. The admission capture records the native guide result and the last reached gate on each fresh Jump.
+
+## Taller 1.64 m wall corridor
+
+The focused geometry scan found a 1.639595 m face and five level landing samples. The standing capsule check passed all four poses and three sweeps after its ground controls. The original hook was restored.
+
+The first climb trial passed with one framework acceptance and user-confirmed animation, landing and normal control. A repeat can focus on hand contact and visible clipping. Restart before another one-shot trial.
+
+At the main menu, start `python tools/tall_vault_trial.py start --pid <pid>` with the verified inactive tall package installed. Load the save and verify the tall guide. While still disarmed, approach the scanned wall and confirm type 4 selection with the selector-local 1.70 m limit. Arm only once the player is in the measured approach and the area is clear. Press Jump once within 30 seconds and report hand placement, animation, landing and return of control. Review the sealed result with `tools/analyze_vault_onto_trial.py`. The capsule path and stock action target justify this bounded experiment. Animation quality above the authored range and cancellation remain to be measured.
+
+## One native VaultOnto climb — passed
+
+PID 32612 forwarded and accepted exactly one request for the added guide. The user confirmed animation, ascent and restored control. The gate used current ground contact. No repeat at this wall is needed for the climb milestone.
+
+Restart at the main menu with the verified inactive guide package installed. Use `python tools/vault_onto_trial.py start --build-name dry-guide-selection-v026-live-contact --pid <pid>` before loading Kuttenberg. Verify the corrected guide and approach the same raised-pavement wall from the lower street. From the last measured spot, move about 0.77 m left while facing the wall. Stand and face it straight on with the landing clear. Arm using the same build name once the player is ready. The arm lasts 30 seconds. Press Jump once and report animation, landing and return of control. The guard admits at most one exact native request after a live standing check, verified ground contact or immediate take-off from it, and a fresh corridor query.
+
+Stop with `python tools/vault_onto_trial.py stop --pid <pid>` and review the capture using `tools/analyze_vault_onto_trial.py`. Keep the guard resident until normal exit. Framework acceptance and visible completion are separate results. This trial is scoped to the previously measured 1.02 m wall.
+
+## Guarded native action selection
+
+The inactive guide archive is already installed. At the menu use `python tools/dry_guide_probe.py start --build-name dry-guide-selection-v026-authored --pid <pid>`. Load Kuttenberg, approach the raised-pavement wall and face it from the street. The fixture uses the shipped single-sided wide-vault flags `0x207`, including the eligibility bit missing from the first preview. The scoped selector can evaluate the guide while its caller receives a refusal before action creation. Review the raw choice and withheld-selection count with `tools/analyze_dry_guide_probe.py`. A type 4 choice establishes native VaultOnto eligibility at the tested pose. The guard stays armed until exit.
+
+## Capsule wall corridor — completed
+
+The standing pose, lowered overlap and downward sweep controls passed in retail. The focused corridor capture returned zero for all four overlaps and three sweeps. The original entry was restored. The query covers the planned capsule corridor. Actual climb animation and interruption still need separate tests.
+
+## Player collider dimensions
+
+Use the restored baseline. Load the Kuttenberg save, stand on level ground and attach with `python tools/collider_probe.py start --pid <pid>`. Stay standing for several seconds, then crouch. Stop the probe and verify original entry restoration. The capture should identify one canonical player and report finite dimensions for both poses within 128 sampled callbacks. The test reads dimensions and preserves the original controller request. Capsule overlap and sweep controls follow separately.
+
+## Guarded index registration — completed
+
+The test passed with one activation, 981 fixture queries, 981 refusals before selection and zero fixture framework requests. The guard remained armed until normal exit. The test install was archived and the baseline restored with matching hashes. [Status](../STATUS.md).
+
+## Vanilla clearance observation — completed
+
+Use the restored baseline and a verified save backup. Build with `tools/build_clearance_probe.ps1`, then use `python tools/clearance_probe.py start --pid <pid>` after ordinary load. At the known low obstacle, perform one normal climb. Stop with `python tools/clearance_probe.py stop --pid <pid>`, verify restoration with the same tool's `status`, and review the completed JSONL with `tools/analyze_clearance_probe.py`. Capture bounds and counters must reconcile. An empty capture means these four call sites were not observed during the session. A nonempty capture still requires exact player association and a separate whole-body clearance check.
+
+The user confirmed a normal low-obstacle climb in PID 33840. The complete capture contained zero sweeps and the original entry bytes were restored. Continue with the native capsule query before requesting another clearance test.
+
+## Inactive guide storage — passed in retail
+
+The tested `guide-append` profile appended one record and two markers to the proven member path. The new record used zero side flags, which the native index loop skips at `0x7e6ad1`. Its coordinates are a storage fixture near the measured v21 top.
+
+The complete member 1 observation matched all expected counts and fingerprints. The user confirmed normal control. Stop and independent restoration of all three hook sites passed. A subsequent read-only snapshot confirmed the disabled tail remained present in the loaded manager. The append profile was archived after exit and the baseline hashes were verified.
+
+Before the next retail test, establish a traversal guard independent of the index flag and define a read-only clearance diagnostic. The clearance fixture needs a known open path, a blocked path and initial overlap, with the live player shape and query masks accounted for. For the later enabled guide, verify index visibility and lifetime across unload and reload before trying a climb. [Native route and remaining gates](KCD2HigherClimbRoute.md#eligibility-and-body-clearance).
+
+## Byte-identical guide mount — passed in retail
+
+The base and owned archive were each observed on their respective loads. The byte-identical test yielded a qualified owned archive attribution and user-confirmed normal control. Both hook sites were verified restored. The experiment was archived after game exit and the restored baseline hashes matched. [Procedure and results](GuideSourceAttribution.md).
+
+## Native guide loading — completed
+
+The ordinary save-load baseline passed in PID34548. Member1 has exactly one guarded source/body/index chain with4,129 ledges/27,564 markers and matching full/structural/marker fingerprints. Member0 has no ledge callback and remains unattributed. All records/counters reconcile with zero drops/unlinked/overflow/truncation/writer fault. The user confirms normal control. Observer stop and independent verification of all three original entries passed; module remains pinned/inert until normal exit. [Evidence](NativeGuideLoading.md).
+
+The subsequent archive-attribution and inactive-storage tests are recorded above. An enabled guide still requires spatial eligibility, lifetime and clearance evidence.
 
 ## Completed manual check - v0.0.21 top and landing scan
 

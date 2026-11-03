@@ -1,5 +1,15 @@
 # Architecture
 
+## Repeatable wall traversal
+
+The repeatable traversal build activates two owned guide records after validating the full Kuttenberg member. A generation check protects the native query, clearance release and framework request. The canonical player’s Jump latch and recent ground sample span worker callbacks. Action association remains callback-local. A normal tall-wall lookup miss can trigger one bounded native retry, which accepts only the exact registered tall handle and preserves the original query input in the audit.
+
+## Native guide source and registration observation
+
+The recovered C_Game member producer constructs `<folder>/whdata_<index>`, obtains XML and dispatches a callback-local input serializer synchronously through event0x1f into the existing ledge manager. The source, body and index callbacks provide a narrow observation chain without invoking host loading/registration or changing geometry. The new GuideProbe retains only copied classifications, counters and typed fingerprints; source/manager identity never survives its callback scope. Sampling follows the normal index builder and precedes entity-ID validation. It preserves the accepted movement bridge and installed PAK. [Contract, evidence and manual boundary](NativeGuideLoading.md).
+
+Separate retail observations established owned archive selection and persistence of an inactive appended guide in the loaded manager. Index visibility and lifetime for an enabled guide still require verification. Higher-wall motion remains host-owned and requires full-body clearance, a complete action and animation profile, and interruption handling. [Native route](KCD2HigherClimbRoute.md).
+
 
 ## v0.0.21 - bounded compound profile diagnostics
 

@@ -24,12 +24,13 @@ BUILD_ROOT = None
 DEFAULT_BUILD = 'build'
 EXPECTED_PROBE = None
 EXPECTED_HOOKS = None
+EXPECTED_MODE = "observe-only"
 
 
-def main():
+def main(check_start=None, allow_arm=False):
     global DLL
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action', choices=['start', 'stop', 'status'])
+    parser.add_argument('action', choices=['start', 'stop', 'status'] + (['arm'] if allow_arm else []))
     parser.add_argument('--pid', type=int, required=True)
     if BUILD_ROOT is not None:
         parser.add_argument('--build-name', default=DEFAULT_BUILD,
@@ -46,14 +47,14 @@ def main():
     expected_exe = game_dir / 'Bin/Win64MasterMasterSteamPGO/KingdomCome.exe'
     expected_game = expected_exe.with_name('WHGame.dll')
     receipt=json.loads(DLL.with_name('probe-build.json').read_text(encoding='utf-8-sig'))
-    if receipt['mode'] != 'observe-only' or receipt['fixtures'] != 'passed' or hashlib.sha256(DLL.read_bytes()).hexdigest() != receipt['dll_sha256']:
+    if receipt['mode'] != EXPECTED_MODE or receipt['fixtures'] != 'passed' or hashlib.sha256(DLL.read_bytes()).hexdigest() != receipt['dll_sha256']:
         raise RuntimeError('Native build receipt/hash mismatch')
     if EXPECTED_PROBE is not None:
         if (receipt.get('probe'),receipt.get('probe_revision')) != EXPECTED_PROBE:
             raise RuntimeError('Observation probe contract differs from this loader')
     if EXPECTED_HOOKS is not None and receipt.get('hooks') != EXPECTED_HOOKS:
         raise RuntimeError('Native hook identities differ from the inspected admission observer')
-    if args.action=='start':
+    if args.action in {'start', 'arm'}:
         for name,pin in receipt.get('sources',{}).items():
             source=(ROOT/name).resolve()
             if not source.is_relative_to(ROOT.resolve()) or hashlib.sha256(source.read_bytes()).hexdigest()!=pin:
@@ -63,11 +64,13 @@ def main():
             raise RuntimeError('Retail binary identity changed; refusing attachment')
     if config['retail_sha256']['Bin/Win64MasterMasterSteamPGO/WHGame.dll'] != SHA:
         raise RuntimeError('Configured target differs from the compiled native pin')
-    if args.action == 'start':
+    if args.action in {'start', 'arm'}:
         backup = json.loads((ROOT/'.local/last-backup.json').read_text())
         manifest = Path(backup['folder'])/'manifest.json'
         if not manifest.is_file() or not DLL.is_file():
             raise RuntimeError('Verified backup receipt and built probe required')
+        if check_start is not None:
+            check_start(game_dir)
     kernel = C.WinDLL('kernel32', use_last_error=True)
     ptr = C.c_void_p
     signatures = {
@@ -125,7 +128,8 @@ def main():
                 checked(kernel.ReadProcessMemory(process,current[game_key][0]+int(hook['rva'],16),code,16,C.byref(read)))
                 if read.value!=16: raise RuntimeError('Incomplete hook prologue read')
                 restored[hook['name']]=code.raw==bytes.fromhex(hook['prologue'])
-            result={STATUS_KEY:restored.get('selection',restored.get('request')),
+            status_name=next((hook['name'] for hook in hooks if int(hook['rva'],16)==STATUS_RVA),None)
+            result={STATUS_KEY:restored.get(status_name),
                     'owned_module_loaded':os.path.normcase(str(DLL.resolve())) in current}
             if EXPECTED_HOOKS is not None:
                 result['hook_prologues_restored']=restored
@@ -164,11 +168,11 @@ def main():
             if key not in current: raise RuntimeError('Probe LoadLibrary did not load the expected DLL')
         # DllMain is inert. Mapping the same owned DLL locally supplies an export RVA.
         local=C.WinDLL(str(DLL.resolve()))
-        export=getattr(local,'KtProbeStart' if args.action=='start' else 'KtProbeStop')
+        export=getattr(local, {'start': 'KtProbeStart', 'stop': 'KtProbeStop', 'arm': 'KtProbeArm'}[args.action])
         offset=C.cast(export,ptr).value-local._handle
         result=remote_call(current[key][0]+offset)
         if result: raise RuntimeError(f'Probe refused {args.action}: Windows status {result}')
-        print(f'PROBE {args.action.upper()} succeeded for explicit PID {args.pid}; observation only. Normal game exit releases the pinned DLL.')
+        print(f'PROBE {args.action.upper()} succeeded for explicit PID {args.pid} in {EXPECTED_MODE} mode. Normal game exit releases the pinned DLL.')
     finally: kernel.CloseHandle(process)
 
 

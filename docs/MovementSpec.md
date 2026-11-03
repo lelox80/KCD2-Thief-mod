@@ -1,5 +1,15 @@
 # Movement and stealth specification
 
+## Normal Jump wall climbs
+
+The two local Kuttenberg wall guides share the normal Jump gate. The live pose and aim choose a lane across the authored ledge. Standing posture, ground contact, capsule corridor and landing support are checked on each attempt. The 1.64 m guide has a scoped height allowance and a bounded lookup retry for nearby approaches. A recovered approach still lands within the authored strip. The 1.02 m guide uses stock VaultOnto parameters.
+
+## Higher-wall target — normal guide load baseline passed
+
+The goal is climbing higher walls through the host's traversal, animation and controller. The normal save-load capture, owned archive attribution and inactive guide storage all passed in retail. The experiment packages were archived and the original installed hashes were verified. The next registration test needs an independent traversal guard because the selector can bypass some action-type flag checks. [Native route](KCD2HigherClimbRoute.md).
+
+The next playable increment remains one owned ordinary-range guide with proven source, registration/handle lifetime, whole-body route and exclusive host handoff. Higher action types5/6/7 need complete configuration and suitable taller motion; changing allowedHeightMax alone is insufficient. No added climb is enabled by the observer.
+
 
 ## Current runtime - v0.0.21 wall candidate verified, no added climbing
 
