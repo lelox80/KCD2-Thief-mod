@@ -2,7 +2,11 @@
 
 Thief (2014)-inspired movement and stealth inside Kingdom Come: Deliverance II.
 
-**Kuttenberg wall climbs.** The 1.64 m wall passed repeat climbs with normal Jump in retail. The next build pairs it with the previously tested 1.02 m raised-pavement wall and sweeps the landing lane from Henry’s actual approach. With the pinned local build and `guide-walls` profile installed, start KCD2 with `python tools/tall_wall.py launch`. Wait for the ready message before loading the Kuttenberg save. [Status](STATUS.md)
+**Kuttenberg wall climbs.** The 1.64 m wall and the 1.02 m raised-pavement wall passed retail tests with normal Jump. The longer guide also passed from several points along the tall wall. [Status](STATUS.md)
+
+**Local runtime-guide trial.** The `guide-runtime` profile reserves 64 slots for walls detected during play. Start the matching build with `python tools/tall_wall.py launch`. [Test procedure](docs/TestPlan.md#mid-session-guide-registration)
+
+**Freestanding-wall trial.** The player cleared the calibrated wall with one normal Jump. The stock vault grabbed the lower lip and native physics carried Henry over a measured crown about 2.69 m above the approach. [Status](STATUS.md)
 
 **Retail loaded an owned guide fixture.** KCD2 selected the mod's Kuttenberg archive, then a separate load retained one inactive guide and its two markers after the save loaded. Both tests were rolled back and the original installation hashes were verified. Higher-wall climbing still needs an eligible guide with proven lifetime, body clearance along the trajectory and suitable native motion. [Status](STATUS.md) and [native guide route](docs/KCD2HigherClimbRoute.md).
 

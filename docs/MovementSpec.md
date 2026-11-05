@@ -2,6 +2,12 @@
 
 ## Normal Jump wall climbs
 
+The crest path covers freestanding walls with a measurable narrow top. It checks the live capsule route to the projected crest and hands off to native VaultOnto. The path ends at the crest. Far-side terrain and the player’s next move stay outside the admission decision.
+
+The calibrated freestanding-wall trial keeps its measured horizontal correction. Just after the native vault releases, it surveys the connected top, lifts Henry and applies one forward push once he rises above the measured crown. Fresh capsule checks cover the route up to the crown. The native physics solver handles movement and collisions beyond it.
+
+The runtime trial can measure new static walls on fresh normal Jumps when KCD2’s lookup misses and no registered guide fits the approach. Each climb requires a broad supported top within the tested height range, standing capsule clearance and landing support. A registered guide still goes through the original VaultOnto selector and action framework.
+
 The two local Kuttenberg wall guides share the normal Jump gate. The live pose and aim choose a lane across the authored ledge. Standing posture, ground contact, capsule corridor and landing support are checked on each attempt. The 1.64 m guide has a scoped height allowance and a bounded lookup retry for nearby approaches. A recovered approach still lands within the authored strip. The 1.02 m guide uses stock VaultOnto parameters.
 
 ## Higher-wall target — normal guide load baseline passed

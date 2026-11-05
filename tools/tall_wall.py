@@ -1,4 +1,4 @@
-"""Launch KCD2 with repeatable Jump climbs at the two measured Kuttenberg walls."""
+"""Launch KCD2 with guarded Jump climbs on walls detected during play."""
 
 import csv
 import json
@@ -12,17 +12,25 @@ import tall_guide_probe
 
 native_probe = tall_guide_probe.native_probe
 native_probe.__doc__ = __doc__
-native_probe.DEFAULT_BUILD = "dry-guide-selection-v026-walls-retry"
-native_probe.EXPECTED_MODE = "repeatable-tall-vault"
+native_probe.DEFAULT_BUILD = "dry-guide-selection-v033-crest-profile-crossing"
+native_probe.EXPECTED_MODE = "crest-profile-crossing"
+native_probe.EXPECTED_HOOKS = [
+    *native_probe.EXPECTED_HOOKS,
+    {"name": "body", "rva": "0x1331224", "prologue": "48895c240848897c242055488bec4883"},
+    {"name": "movement_request", "rva": "0x837e7c", "prologue": "48895c240848896c2410488974241857"},
+    {"name": "grab_create", "rva": "0xf45298", "prologue": "4c8bdc49895b084989731049897b184d"},
+    {"name": "grab_exit", "rva": "0x702b7c", "prologue": "48895c2410574881eca0000000488b05"},
+    {"name": "living_action", "rva": "0x845b90", "prologue": "488bc448895810488970185557415441"},
+]
 EXPECTED_FILES = {
     name: digest for name, digest in tall_guide_probe.EXPECTED_FILES.items()
     if name != "Data/kuttenberg_thief_guide_tall.pak"
 }
-EXPECTED_FILES["Data/kuttenberg_thief_guide_walls.pak"] = "2d6d6c65498b7030290eb85501295ef035b9e81e611877bc010c5ca23ac65857"
+EXPECTED_FILES["Data/kuttenberg_thief_guide_runtime.pak"] = "24ef9c3c3ffb2dda0d2743f6561c17d47b486734637a162b08fe40f0f5a3285c"
 
 
 def check_install(game):
-    tall_guide_probe.dry_guide_probe.check_install(game, "guide-walls", EXPECTED_FILES)
+    tall_guide_probe.dry_guide_probe.check_install(game, "guide-runtime", EXPECTED_FILES)
 
 
 def game_pids():

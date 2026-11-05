@@ -1,5 +1,45 @@
 # Test plan
 
+## Thin freestanding wall
+
+Load Kuttenberg with the crest build. Return to the freestanding wall that previously refused at the wall-section survey. Face a straight section from about 0.7–1.0 m away on level ground and tap normal Jump once. Report whether Henry reaches the crest, how the animation ends, and when control returns. The capture logs `crest_target` with the selected guide and native result. If possible, try a broad-topped wall in the same session as a control.
+
+For the height retry, use the same freestanding wall that stopped in PID 22964. The capture records separate `wall_broad_height_m`, `wall_crest_height_m`, `tall_broad_height_m` and `tall_crest_height_m` values when the probes measure a surface.
+
+The 2.20 m build covers the measured 2.147 m crest. Retest from the same approach with one normal Jump. The expected sequence is a crest measurement, airborne rise, clearance to the crest and a native VaultOnto request if the stock range is reached.
+
+The crest trace build adds `vault_target` and `vault_release` records for the same transaction. Retest the same freestanding wall, then let Henry finish the animation with no additional input. Compare `checked_crest` with `vault_target` and `physical_before_release` and `physical_after_release`. An Exit can also occur on interruption, so record what the animation did visually.
+
+For the placement calibration, repeat the same approach and Jump. Check that `target_adjusted` is true and compare the physical release pose to `checked_crest`. Report whether Henry stays on top after the animation and when control returns.
+
+For the support trace, hold still for about one second after the animation. Read `support_before_release` and `support_after_release` in the matched release record, then follow `vault_support` events for the same transaction. A ground height reported while airborne is historical. Use the flying flag and the physical position to distinguish support near the crest from the later landing below it.
+
+For the crest lift, repeat that same approach and one Jump. Check `blend_lift_m` in `vault_release`, compare the physical Z with `checked_crest`, and look for `grounded_near_crest` in the support samples. Report whether Henry stays on the crest and regains control.
+
+For the physical release build, use the same single Jump and hold still for one second after the animation. Check `vault_physical_lift` for the gate or native request result and the live `velocity_mps` and `gravity_mps2` values. Use the matching `vault_support` events to distinguish an accepted lift request from measured support at the crest.
+
+For the gravity-wait build, check whether `waiting_for_gravity` is followed by a request, another refusal, or `release_window_expired` on the same transaction. The same one-second hold captures the first supporting contact.
+
+For the crossing build, approach the same wall and press normal Jump once. Let the vault finish and report whether Henry goes over to the far side and regains control. Compare `crown_rise_m`, `crown_depth_m` and the `vault_crest_push` request to signed `crest_forward_m` in the subsequent pose samples. The far-side landing is player-controlled.
+
+## One Jump into stock VaultOnto
+
+For the 2.10 m follow-up, try a broad-topped wall slightly taller than the confirmed 1.97 m wall. Compare it with a freestanding wall in the same session. Use one normal Jump per attempt. The capture reports `air_peak`, `wall_survey`, `tall_survey` and `clearance_failure` to distinguish jump reach, wall shape and landing support.
+
+For the repeatable build, use the wall that passed at 1.97 m. Climb once, return to the lower approach by walking around, and repeat the same normal Jump in the same session. The second attempt should log `armed_reuse` followed by a handoff using the same guide handle.
+
+Load Kuttenberg with the `jump-into-stock-vault` build. Choose a static wall a little over Henry’s head, about 1.75–1.90 m from level ground, with a broad, clear top. Stand still about 0.7–1.0 m away, face it squarely and tap normal Jump once. Hold position through the jump. Report whether Henry simply landed or transitioned into the vault, reached the top and regained control. The capture records `air_trial`, rise, remaining ledge height, and any native selection or framework response.
+
+## Mid-session guide registration
+
+Launch with `python tools/tall_wall.py launch` using the pinned `guide-runtime` package. Load Kuttenberg once. Try normal Jump on three different static walls with broad flat tops about waist to head high, then return to the first. Approach each from level ground, stand about 0.7–1.0 m away and face the wall squarely. Report which climbs played an animation, landed on top and returned control.
+
+The capture field `runtime_lookup` distinguishes geometry refusal, clearance refusal, a refused or full pool, registration and reuse. The native handle distinguishes each guide. `climb_gate` and the request record distinguish subsequent native selection, release and framework acceptance.
+
+## Longer tall wall and session guide
+
+Launch with `python tools/tall_wall.py launch`, then load the tall-wall save. Try Jump from the known center, then from about one metre left and right, and from closer and one short step back. Walk back down between climbs. Keep the landing clear. Record which approaches climbed and whether the animation stayed aligned. The live capture distinguishes a missing guide, approach refusal, face or top survey refusal, clearance refusal and accepted native request. A normal save reload in the same process can also exercise the new index generation.
+
 ## Two-wall normal Jump playtest
 
 For the lookup retry build, test the tall wall from the usual spot, a small sidestep, one short step back and a closer approach in the same session. Keep the landing clear and face the wall for each Jump. Check `tall_lookup_retry` and `climb_gate` in the capture. A recovered handle can still be rejected by native selection, live clearance or the action framework.

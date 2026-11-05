@@ -19,6 +19,7 @@ GUIDE_PAKS = {
     "guide-append": "Data/kuttenberg_thief_guide_append.pak",
     "guide-tall": "Data/kuttenberg_thief_guide_tall.pak",
     "guide-walls": "Data/kuttenberg_thief_guide_walls.pak",
+    "guide-runtime": "Data/kuttenberg_thief_guide_runtime.pak",
 }
 
 
@@ -278,6 +279,8 @@ if __name__ == "__main__":
                           help="Include the inactive tall Kuttenberg guide")
     profiles.add_argument("--guide-walls", dest="profile", action="store_const", const="guide-walls",
                           help="Include both inactive Kuttenberg wall guides")
+    profiles.add_argument("--guide-runtime", dest="profile", action="store_const", const="guide-runtime",
+                          help="Reserve inactive slots for walls detected during play")
     args = parser.parse_args()
     if args.profile and args.command not in {"build", "install"}:
         parser.error("Guide profiles require build or install")

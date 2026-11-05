@@ -1,4 +1,4 @@
-param([ValidatePattern('^[a-z0-9][a-z0-9-]{0,63}$')][string]$OutputName='build-v021',[switch]$DryGuideGuard,[switch]$SelectionPreview,[switch]$LiveTrial,[switch]$TallPreview,[switch]$Repeatable)
+param([ValidatePattern('^[a-z0-9][a-z0-9-]{0,63}$')][string]$OutputName='build-v021',[switch]$DryGuideGuard,[switch]$SelectionPreview,[switch]$LiveTrial,[switch]$TallPreview,[switch]$Repeatable,[switch]$LongWall,[switch]$RuntimeWall,[switch]$AirVault,[switch]$VaultTrace)
 $ErrorActionPreference = 'Stop'
 if ($DryGuideGuard -and !$OutputName.StartsWith('dry-guide-')) { throw 'Use a separate dry-guide- output name' }
 $definition = if ($DryGuideGuard) { '/DKT_LEDGE_DRY_GUARD' } else { '' }
@@ -24,6 +24,27 @@ if ($Repeatable) {
     $definition += ' /DKT_LEDGE_REPEATABLE'
     $mode = 'repeatable-tall-vault'
     $guideProfile = 'guide-walls'
+}
+if ($LongWall) {
+    if (!$Repeatable) { throw 'The longer wall requires repeatable traversal guards' }
+    $definition += ' /DKT_LEDGE_LONG_WALL'
+    $mode = 'long-wall-session-guide'
+}
+if ($RuntimeWall) {
+    if (!$LongWall) { throw 'The runtime wall trial requires the guarded long-wall profile' }
+    $definition += ' /DKT_LEDGE_RUNTIME_WALL'
+    $mode = 'runtime-wall-pool'
+    $guideProfile = 'guide-runtime'
+}
+if ($AirVault) {
+    if (!$RuntimeWall) { throw 'The airborne vault trial requires the runtime guide pool' }
+    $definition += ' /DKT_LEDGE_AIR_VAULT'
+    $mode = 'jump-into-stock-vault'
+}
+if ($VaultTrace) {
+    if (!$AirVault) { throw 'The crest trace requires the guarded airborne vault build' }
+    $definition += ' /DKT_LEDGE_VAULT_TRACE'
+    $mode = 'crest-profile-crossing'
 }
 $taskRoot = Split-Path -Parent $PSScriptRoot
 $archive = Join-Path $taskRoot '.local/native/probe/deps/minhook-v1.3.4.zip'
@@ -107,6 +128,10 @@ if ($LiveTrial) {
 if ($TallPreview) { $sourceFiles += @('native/LedgeProbe/TallPreview.h','tools/tall_guide_probe.py') }
 if ($TallPreview -and $LiveTrial) { $sourceFiles += 'tools/tall_vault_trial.py' }
 if ($Repeatable) { $sourceFiles += @('native/LedgeProbe/RepeatableVault.h','tools/tall_wall.py') }
+if ($LongWall) { $sourceFiles += 'native/LedgeProbe/LongWall.h' }
+if ($RuntimeWall) { $sourceFiles += 'native/LedgeProbe/RuntimeWall.h' }
+if ($AirVault) { $sourceFiles += 'native/LedgeProbe/AirVault.h' }
+if ($VaultTrace) { $sourceFiles += 'native/LedgeProbe/VaultTrace.h' }
 foreach ($name in $sourceFiles) {
     $sources[$name] = (Get-FileHash -LiteralPath (Join-Path $taskRoot $name) -Algorithm SHA256).Hash.ToLowerInvariant()
 }
@@ -119,6 +144,13 @@ $hooks = @(
 )
 if ($DryGuideGuard) { $hooks += @{name='index';rva='0x7e6a50';prologue='405355565741544155415641574883ec'} }
 if ($TallPreview) { $hooks += @{name='params';rva='0x832310';prologue='8954241053574883ec38488bd98bfa48'} }
+if ($RuntimeWall) { $hooks += @{name='body';rva='0x1331224';prologue='48895c240848897c242055488bec4883'} }
+if ($AirVault) { $hooks += @{name='movement_request';rva='0x837e7c';prologue='48895c240848896c2410488974241857'} }
+if ($VaultTrace) {
+    $hooks += @{name='grab_create';rva='0xf45298';prologue='4c8bdc49895b084989731049897b184d'}
+    $hooks += @{name='grab_exit';rva='0x702b7c';prologue='48895c2410574881eca0000000488b05'}
+    $hooks += @{name='living_action';rva='0x845b90';prologue='488bc448895810488970185557415441'}
+}
 [ordered]@{
     mode=$mode; probe='ledge-admission'; probe_revision=4; fixtures='passed'; dll_sha256=$probeHash;
     target_sha256='bdf8f9e4a11257a72b64c84700e284c29e4c4ccaf5b8d4bfa7d0b2a7294479f7';

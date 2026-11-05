@@ -2,6 +2,10 @@
 
 ## Repeatable wall traversal
 
+The calibrated crest trial links the checked Jump transaction to the exact native grab. The release receipt opens an 80 ms window on the matching player collider. Once gravity returns, bounded downward casts trace the connected top at guide height or higher. The measured crown and the previous collision lower bound set the lift target. A standing capsule checks vertical headroom and the horizontal segment ending at the crown. An accepted lift arms one forward request for the same player, guide epoch and collider, applied once the collider rises above the measured threshold and passes the clearance check. The native physics solver handles collision and contact. The audit records the crown, both requests, expiry, signed travel past the original guide and subsequent physical support.
+
+The runtime trial reserves 64 inactive records during level load. On a stock lookup miss, the scoped player query looks for the closest eligible registered guide. A fresh Jump can publish a new record after physical checks if none matches. Published records stay outside the shared spatial index and retain stable handles and geometry for the level load. The guide loader invalidates the pool before it can replace storage.
+
 The repeatable traversal build activates two owned guide records after validating the full Kuttenberg member. A generation check protects the native query, clearance release and framework request. The canonical player’s Jump latch and recent ground sample span worker callbacks. Action association remains callback-local. A normal tall-wall lookup miss can trigger one bounded native retry, which accepts only the exact registered tall handle and preserves the original query input in the audit.
 
 ## Native guide source and registration observation

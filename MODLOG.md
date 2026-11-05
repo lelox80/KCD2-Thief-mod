@@ -1,5 +1,83 @@
 # Mod log
 
+## 2026-11-05 — measure the crown before the crossing push
+
+- Use a bounded connected-top survey and capsule clearance up to the measured crown for the calibrated narrow wall. Derive the lift and push threshold from that height. Native slope fixtures and 46 Python tests passed before retail attachment.
+- The player cleared the calibrated wall with normal Jump. The retail trace measured the crown and recorded Henry passing above it and continuing to the far side.
+
+## 2026-11-05 — rise above the collision before pushing forward
+
+- Split the crest crossing into an upward lift followed by one forward request at a measured rising height. Verify local clearance for both stages and log the push separately. Native fixtures and Python tests passed before retail attachment.
+
+## 2026-11-05 — carry the crest vault forward
+
+- Add one bounded forward component to the matched release lift so Henry can cross the narrow wall in the air. Keep the checked approach, existing target correction and crest-only clearance. Log the full request and signed crossing distance. Native and Python tests passed before retail attachment.
+
+## 2026-11-05 — wait for gravity after crest release
+
+- Treat zero gravity as a temporary release state inside the existing 80 ms window. Recheck clearance before sending the single lift, and log when the window expires. Offline handoff, expiry and obstruction fixtures passed before retail attachment.
+
+## 2026-11-05 — accept retail gravity at crest release
+
+- Correct the crest lift's gravity guard for the shipped 13 m/s² actor setting. Account for the measured release drift, retry transient velocity refusals within the existing window, and log the specific guard result with live velocity and gravity. Offline replay and tests passed, and the build attached in retail for the manual climb.
+
+## 2026-11-05 — send the crest lift through living movement
+
+- Move the scoped lift to the native living movement callback just after the matched vault releases. The request adds vertical velocity only, after a fresh capsule sweep and player, stance, contact and gravity checks. The existing support trace records the outcome. Native fixtures and 46 Python tests passed, and the build attached in retail for the manual climb.
+
+## 2026-11-05 — blend the measured crest lift
+
+- Add a bounded 5 cm vertical correction through the stock alignment blend for the matched freestanding-wall vault. The release audit records the applied delta and follows support for 950 ms. Native fixtures and 46 Python tests passed, the installed package verified, and the corrected build attached in retail before the manual climb.
+
+## 2026-11-04 — trace support at crest release
+
+- Added native ground contact and physical pose samples around the matched vault Exit and for the first 950 ms of movement updates. The crest correction and clearance path are unchanged.
+
+## 2026-11-04 — calibrate crest release placement
+
+- Scoped the measured horizontal and vertical correction to the tested freestanding wall and verified the compensated point with the live capsule before native handoff.
+
+## 2026-11-04 — crest vault target and release trace
+
+- Added native target and physical release pose logging for the exact crest vault transaction. The climb and clearance path stay the same.
+
+## 2026-11-04 — 2.20 m crest retest
+
+- Raised the airborne survey cap to cover the measured 2.147 m crest and adjusted the observation window to include the rise required by the stock selector.
+
+## 2026-11-04 — crest retry after height refusal
+
+- The crest probe gets its own measurement after a broad height refusal. The audit retains the broad and crest stages and measured heights.
+
+## 2026-11-04 — thin-wall crest trial
+
+- Added a narrow crest survey and a normal-Jump climb to the measured crest. The capsule checks stop at the crest and the native VaultOnto action controls the release.
+
+## 2026-11-04 — repeated airborne climbs and higher survey
+
+- Retail accepted four airborne stock vaults in one session, including two guide reuses. Raised the survey cap to 2.10 m and added geometry and landing diagnostics for the next test.
+
+## 2026-11-04 — first airborne stock vault confirmed
+
+- Retail accepted a normal-Jump handoff at a 1.97 m wall after about 0.50 m of rise. The player confirmed the vault and ascent. The follow-up allows fresh Jumps to reuse the tall guide in the same level load.
+
+## 2026-11-04 — Jump into stock vault trial
+
+- Added an experimental one-Jump handoff on a slightly taller static wall. A verified player movement callback samples the real jump and permits one guarded native VaultOnto attempt within the stock height range.
+
+## 2026-11-04 — multiple runtime walls
+
+- Expanded the proven runtime slot into 64 stable guides per loaded level. Fresh Jump can register another measured wall or reuse a compatible guide after live clearance.
+
+## 2026-11-03 — mid-session runtime guide trial
+
+- Added a single inactive reserved guide for measured static walls. The guarded player query can offer the runtime handle on normal Jump after live geometry and capsule checks. Save load invalidates the slot before the host reloads its guide arrays.
+
+## 2026-11-03 — longer tall wall staged
+
+- Pushed the repeatable two-wall progress to GitHub as `988a915`.
+- Built a temporary 2.70 m tall guide through KCD2’s normal index build, with a live three-lane geometry survey and the existing clearance checks before native admission.
+
 ## 2026-11-03 — two-wall retail test and tall lookup follow-up
 
 - Both guides climbed with normal Jump. Missed tall-wall approaches returned no guide before the clearance gate. Added one bounded retry through KCD2’s own spatial query with exact guide identity and the existing live clearance checks.

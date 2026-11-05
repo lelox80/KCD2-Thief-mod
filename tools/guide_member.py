@@ -156,10 +156,12 @@ def append_inactive(payload, profile="guide-append"):
         "guide-append": ("guide-append",),
         "guide-tall": ("guide-tall",),
         "guide-walls": ("guide-tall", "guide-append"),
+        "guide-runtime": ("guide-tall", "guide-append") + ("guide-reserved",) * 64,
     }[profile]
     geometry = {
         "guide-append": (((2896.821826, 767.061523, 62.353310), (2897.421826, 767.061523, 62.353310)), "0,-1,0"),
         "guide-tall": (((2895.372195, 794.028068, 65.958130), (2895.302609, 794.523202, 65.958130)), "0.990268,0.139173,0"),
+        "guide-reserved": (((0, 0, 0), (0.5, 0, 0)), "0,-1,0"),
     }
     ledges, markers = [], []
     added_ledges, added_markers = bytearray(), bytearray()

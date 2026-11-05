@@ -1,4 +1,208 @@
-# Status — 2026-11-03
+# Status — 2026-11-05
+
+## Measured crown crossing passed on the freestanding wall
+
+PID 35884 transaction 3412 measured the crown 0.5333 m above and 0.36 m forward of the original guide, putting it about 2.69 m above the approach. The native handler accepted the vertical request 15 ms after vault release and the 4.0 m/s forward request at 234 ms. At 328 ms Henry was 0.3873 m forward of the guide and 0.7208 m above it, about 19 cm above the surveyed crown as he passed its measured depth. The last sample at 922 ms was 2.72 m forward of the guide and still airborne. The player confirmed crossing the wall. The bounded capture ended before ground contact.
+
+## Measured crown crossing attached for retest
+
+PID 13500 transaction 3103 accepted both requests. Forward motion stopped 18.7 cm beyond the guide at 188 ms. Over the first three forward samples, the collider's candidate ground height rose from 6.9 to 17.5 to 28.1 cm above the guide. The rise per metre of forward travel was about 1.58, consistent with a steep surface continuing upward behind the first measured lip. Henry returned to the approach side.
+
+The new scoped release surveys the connected top in 6 cm increments to find the crown. The short downward casts end near the original guide height and stop at the first drop or plateau. A standing capsule checks the route up to the observed crown, with a 28.2 cm minimum lift reference for the calibrated wall based on the last capture. The host still resolves the crossing and landing beyond the crown. The original horizontal correction and one-Jump admission remain in use.
+
+Native fixtures and 46 Python tests passed. A new 237-file save backup and installed guide package verified. The new build attached to retail PID 35884 before the test. The release records report crown height and depth, and the game has yet to measure the crown during this build's manual vault.
+
+## Rise-then-cross build attached for the same-wall test
+
+In PID 9136 transaction 1270, the combined lift and forward request was accepted but reached only 9.3 cm past the crest. At that point the living collider reported a candidate ground height 13.3 cm above the measured crest while the physical origin was only 7.3 cm above it. Henry fell back to the approach side. This points to a higher collision surface in the crossing path.
+
+The new build lifts first with no forward addition and can send one 4.0 m/s forward request after the live collider reaches 17 cm above the measured crest while rising. Both stages check local upward clearance at the crest. The measured horizontal correction and one normal Jump still gate the action. The two stages are logged separately. An offline model using the failed release inputs predicts 0.61–0.74 m of forward travel before descending to the reported collision height at 45–90 Hz, assuming no drag or collision.
+
+Native fixtures and 46 Python tests passed. The installed guide package and a new 237-file save backup verified. Retail PID 13500 loaded the build. Actual crossing remains the manual check.
+
+## Forward crest crossing attached for the same-wall test
+
+The calibrated crest release now combines the proved vertical lift with one forward request along the measured approach, targeting 4.0 m/s in that direction. The previous vertical-only trace reached crest height on descent about 158 ms after the request. That gives an estimated 0.62 m of forward travel past the crest at the chosen speed if drag and collision do not reduce it. The original horizontal target correction remains in use. Clearance still ends at the crest, and the host handles motion and collision beyond it.
+
+Native fixtures verified direction, retained vertical and lateral components, and blocked clearance. All 46 Python tests passed. The installed guide package and a new 237-file save backup verified, and retail PID 9136 loaded the build. The lift event now records the full requested velocity vector, and subsequent pose samples report signed travel past the crest. Crossing the wall still needs the manual Jump.
+
+## Gravity returned and the lift cleared crest height without support
+
+PID 34044 transaction 4608 waited at zero gravity, then read `[0, 0, -13]` at 16 ms. The living movement handler accepted the one `+1.2821 m/s` vertical request. Henry was already 0.63 cm above the crest at 32 ms and peaked 3.50 cm above it at 110 ms. His horizontal position stayed about 1.7 cm from the measured crest through the descent below crest height at 188 ms. All of the first 30 support samples were airborne. The first ground contact was 766 ms after release, about 2.15 m below the crest. The result confirms that the physical lift worked and the living collider still failed to find support during descent.
+
+## Gravity-wait build attached for the same-wall test
+
+A matched release can now wait for nonzero downward gravity inside the existing 80 ms window. The next eligible movement callback rereads the live player, stance, position, velocity and gravity. A single lift can proceed after an upward capsule check at the crest. The log distinguishes the wait, expiry, refusal and request. The original horizontal correction and one-Jump admission remain in use.
+
+Native fixtures replayed the recorded zero-gravity handoff and simulated gravity returning on the next eligible frame. They also verified expiry, one-shot consumption, out-of-position refusal and blocked clearance. All 46 Python tests passed. The previous save archive matched all 237 current files, and the launcher attached the build to retail PID 34044. Gravity recovery timing and physical support at the crest still await the manual climb.
+
+## Release callback read zero gravity and refused the lift
+
+PID 15696 transaction 1898 reached the physical lift check at 0 ms after Exit. The live dynamics packet read gravity `[0, 0, 0]` and velocity `[0, 0, 2.46774912]`. The gravity guard refused before a request was issued. The physical origin was 1.9 cm below the crest at Exit and still 1.1 cm below it at the highest post-release sample. The first 25 samples were airborne. Ground contact first appeared after 656 ms, 2.15 m below the crest. The configured 13 m/s² does not describe the value returned at this exact handoff callback. The trace did not sample gravity after the initial refusal.
+
+## Corrected release guard attached for the same-wall test
+
+The shipped `Scripts.pak` sets `Living.gravity = 13` in `BasicActor.lua`, which `player.lua` merges into Player. The later free-fall samples from transaction 1592 independently imply about 13 m/s² downward. The old guard rejected magnitudes above 12. The corrected guard accepts the retail value and logs live gravity, velocity and the specific refusal. The first-frame displacement also implied about 0.75 m/s of brief horizontal drift. The measured-body limit now allows up to 0.85 m/s, while the stock horizontal input limit stays at 0.50 m/s. Transient velocity refusals can be rechecked within the same 80 ms release window. The clearance sweep and one-request limit still apply.
+
+The native fixture replayed the archived release position with the inferred first-frame motion and retail gravity. It passed along with 46 Python tests. A fresh backup ran out of space. All 237 live save files were reverified against the previous archive, and the incomplete archive was removed. Retail PID 15696 attached with the corrected build. The physical outcome still needs one manual Jump.
+
+## Physical release guard refused the lift
+
+PID 15408 transaction 1592 reached the living movement callback immediately after Exit. It recorded `outside_lift_window`, with zero added velocity and no native lift request. The physical origin was about 1.0 cm horizontally from the checked crest and 2.0 cm below it, both within the position limits. The guard combines checks for the sampled velocity and gravity and the capture did not record those inputs separately. The first 25 support samples were airborne. Ground contact first appeared after 656 ms, about 2.15 m below the crest. No sample recorded support on top. The player reported the same visible result.
+
+## Physical crest release build attached for retest
+
+The previous correction reached the clip's blend field. Static inspection shows that the clip recalculates alignment on Exit with Z disabled, and stock physical release still finished below the crest. The new trial sends one small additive upward velocity request through the living collider's stock Move handler after the exact calibrated vault releases. It requires a fresh matching release, a live standing and airborne player collider beside the crest, normal downward gravity and a clear local upward capsule sweep. The horizontal correction and original route clearance remain in use. No far-side query runs.
+
+Native fixtures and 46 Python tests passed. The guide package verified, 237 saves were backed up, and the build attached in retail PID 15408 before the test. `vault_physical_lift` reports the gate or native result, and `vault_support` records the physical outcome. Crest contact and retention await the manual Jump.
+
+## Crest lift reached the blend. Henry still fell.
+
+PID 26264 transaction 2340 logged `blend_lift_m=0.050` and retained the horizontal target correction. Henry's physical position at Exit was 1.7 cm below the checked crest, compared with about 2.0 cm below on the previous attempt. The highest post-release sample was still 1.0 cm below the crest. The first 24 samples were airborne. The first confirmed ground contact came 641 ms after Exit, 2.147 m below the crest. None of the 35 samples showed support on top. The logged delta confirms the blend was configured, while the physical samples show that the full lift did not carry through to release.
+
+## Crest lift build attached for retest
+
+The shipped upward vault fragments set `PositionAdjustAlignBone.UseZAxis` to false. The pinned clip zeroes the Z delta before it blends alignment. The new trial supplies a 5 cm delta to that existing blend for the calibrated freestanding wall and preserves the 24 cm horizontal target correction. The estimate combines the measured 2 cm release deficit with the checked target 3 cm above the crest. One normal Jump and clearance up to the crest still gate the action.
+
+The native fixtures and 46 Python tests passed. The installed guide package verified and 237 saves were backed up. The first attach refused two short byte pins before enabling hooks. The corrected build attached to PID 26264 and logged `crest-vault-lift` with 11 hooks. The vault release record reports `blend_lift_m`.
+
+## Crest release trace found no supporting contact on top
+
+PID 24172 transaction 2944 retained the horizontal correction and released Henry about 2.0 cm below the measured crest. Before Exit the flying flag was false, but the ground height was the invalid `-1e10` sentinel. After Exit the flying flag became true. The first 24 post-release samples were airborne. The first grounded sample arrived at 656 ms, about 2.15 m below the crest. None of the 36 post-release samples recorded support near crest height. Live capture snapshot SHA-256 `4c7a3c07a8315404efbeb929a1b1ef71f1eaa3c13e28ddd4ea61a9ea7aa49b84`.
+
+## Crest support trace ready for retest
+
+The support build reads the native living-entity flying flag, last ground height and physical position immediately before and after the matched grab’s Exit. It then records the same fields on the canonical movement callback for up to 950 ms. An airborne sample remains airborne even if the last ground height is at the crest. Grounded samples distinguish contact near crest height from a landing elsewhere. The trace performs no new terrain queries.
+
+The calibrated target, one-Jump handoff and crest-only clearance remain in use. The next retail attempt can establish whether Henry finds support briefly, stays airborne at release or lands below the crest.
+
+The native fixtures and all 46 Python tests passed. The launcher verified the existing package and attached to retail PID 24172 before save load after backing up 237 saves.
+
+## Crest correction fixed the horizontal release offset. Henry still dropped.
+
+PID 16380 transaction 1602 recorded `target_adjusted=true`. The native target moved 0.24 m toward the approach and 0.03 m up. At Exit, Henry’s physical origin was about 0.4 cm toward the approach from the checked crest and 2.0 cm below it. The unadjusted trace had released 24.1 cm past the crest and about 2.0 cm below it. The horizontal correction worked, while the vertical release position was effectively unchanged. Later samples returned to the lower approach. The player reported the same visible result. The trace does not include the support contact at Exit. Live capture snapshot SHA-256 `7c3c784174337ca34336621044b8a40e84e76ab9a4ca2bb18c55835816c8bac0`.
+
+## Crest release placement calibration ready for test
+
+The calibrated build applies the measured release correction to the matched native grab constructor for the tested freestanding wall. It keeps the guide and checked crest at their measured positions, checks the compensated point and descent with the live capsule, then passes a local copy of the native target 0.24 m toward the approach and 0.03 m higher. The native action still owns movement and release. Clearance stops at the crest.
+
+The audit now records the stock target, the target actually stored by the grab, the adjustment flag and physical release pose. A correction requires the exact guide, actor, checked crest and matching native target. In-game placement and retention on the crest remain to be tested.
+
+The native fixtures and 46 Python tests passed. The launcher verified the existing guide package and attached to retail PID 16380 before save load after backing up 237 saves.
+
+## Native crest target matched. Release was 24 cm past it.
+
+PID 11692 transaction 1813 joined the cleared crest, native `TargetPos` and grab Exit. Checked crest was (2894.05444, 759.333496, 63.2343559). The native target differed by 0.25 mm in X and matched Y and Z. Henry’s physical origin before and after Exit was (2894.06006, 759.092468, 63.2146912), about 24.1 cm forward along the approach direction and 2.0 cm below the measured crest. Later query samples show a return toward the lower approach. The trace establishes target and body placement, while hand position and the precise cause of the release offset remain open. Live capture snapshot SHA-256 `fda69e120ba22883152baa7ec86b3df2e5fbc6b8bcf402ce5ed2d6525779a89a`.
+
+## Crest vault target and release trace
+
+The native fixtures checked constructor argument forwarding and exact crest-handle association. All 46 Python tests passed. The loader verified the installed guide package, backed up 237 saves and attached to retail PID 11692 before save load.
+
+The trace build samples the exact native `TargetPos` copied into the crest grab. It records the projected point cleared by the capsule and joins the target to the accepted crest request by actor, guide handle and transaction. It also samples Henry’s physical position immediately before and after the matched native grab’s Exit callback. Missing poses are recorded as null. The trace adds no new movement behavior.
+
+## Thin crest accepted. Henry dropped back after the animation.
+
+PID 15468 measured the narrow crest at 2.1545 m and the broad surface at 2.2214 m. Transaction 2124 published the crest guide and received native VaultOnto acceptance after 0.6908 m of jump rise. The player saw Henry grab visually about half a metre below the top, play the animation and drop back to the approach side. The highest later query sample was about 2.36 m above its launch sample, around 0.20 m above the measured crest under the standing query offset. This is a post-action body-position observation. It does not locate the hands or prove the target transform used by the animation. The next diagnostic should compare the measured crest, resolved native TargetPos and live player transform at release. Live capture snapshot SHA-256 `d6aa321ead2c268b91fc300cf992ec3c422ed878a0b3e50fba6af0316ecced42`.
+
+## 2.20 m crest retest
+
+Raised the airborne survey cap to 2.20 m. The handoff now observes up to 0.78 m of rise so a physics sample can enter the stock vault window at the upper limit. The measured 2.147 m crest needs about 0.66 m of actual rise. Jump speed, the stock vault window and crest-only clearance are preserved.
+
+Native fixtures covered the recorded 2.2137 m broad refusal and 2.147 m crest acceptance, along with the airborne height window. All 46 Python tests passed. After backing up 237 saves, the launcher verified the installed guide package and attached to retail PID 15468 before save load.
+
+## Crest retry measured the freestanding wall at 2.147 m
+
+PID 7100 transaction 2204 recorded a 2.2137 m broad surface estimate that stopped at the top gate. The narrow crest retry then measured 2.1470 m above takeoff and stopped at the 2.10 m height cap. The ordinary probes returned no height. No handoff armed, no guide registered and no capsule clearance or native vault request ran. Live capture snapshot SHA-256 `23510b15996a2fc862fdb3cab838187df180be578c5196b5341719042d9e7ebf`.
+
+## Crest retry after a height refusal
+
+Both survey height bands now retry with the near-edge crest probe after a broad height refusal. The native audit records each broad and crest outcome and each measured height above launch in metres. A crest measurement outside its accepted height band remains a refusal. The accepted crest path still uses one normal Jump and sweeps only up to the crest.
+
+Native fixtures verified a broad height refusal followed by a valid crest measurement, as well as refusal when both measurements were out of range. All 46 Python tests passed. The existing package was verified and the updated build attached to retail PID 7100 before save load after backing up 237 saves.
+
+## First freestanding crest attempt stopped in the survey
+
+PID 22964 recorded one freestanding-wall attempt in the crest build. The ordinary survey stopped at its top check. The taller survey produced a height outside its accepted band and ended before crest fallback, guide registration or capsule clearance. The exact measured height was not recorded. There was no native vault request. Live capture snapshot SHA-256 `71d7105fb491b53aa5f47f2ba1eb0230caf8c29f97048ecf8172992d694c20aa`.
+
+## Thin-wall crest climb ready for test
+
+The runtime survey can recover a shallow crest using smaller face and top probes. A measured crest becomes the exact native guide target. The standing capsule is swept from Henry’s live pose to the crest, with the wall face and top rechecked at the actual grab point. The crest route requires no landing support beyond that point. The ordinary broad-top route retains its landing checks.
+
+Normal Jump can select the crest path from the ground or through the established airborne handoff. The original VaultOnto action remains in charge of the climb and release. The player controls what happens beyond the crest. The stock action’s behavior on a very narrow top still needs retail confirmation.
+
+The native fixtures and 46 Python tests passed. The launcher verified the existing guide package, backed up 237 saves, and attached the crest build to retail PID 22964 before save load.
+
+## Stock Jump reached the vault window at 2.07 m
+
+PID 28276 accepted three airborne VaultOnto requests. The tallest approach measured 2.0687 m above takeoff. Henry rose 0.6034 m by handoff, leaving 1.4653 m of remaining height. This is the largest observed rise in the capture. The vault took over while he was still rising, so it is not a measured jump apex. One 1.7726 m attempt reached the height window but stopped at approach.
+
+Three nearby freestanding-wall attempts stopped at the wall-section survey after measuring a potential ledge. They never reached capsule clearance or a landing check. The current event combines the face and top checks, so it does not identify the individual failed sample. The requested thin-wall behavior is to reach the crest or grab the edge. Keep clearance checks on that movement and leave far-side terrain to the player. Live capture snapshot SHA-256 `e54104d460f56d3764b56ed044ca5b02f345f614bd31be9b25c42a56e99a8c68`.
+
+## Repeat airborne vault confirmed. 2.10 m trial built.
+
+PID 11928 recorded four accepted airborne stock vaults, including two reuse handoffs for the same guide. One other handoff stopped at approach. The capture does not establish a full jump peak because the accepted attempts handed off while rising. Live capture snapshot SHA-256 `10e0e0073c26bdbd4dffe7aa4107dd7fe8ac0ab06189d85e7c30d83578b8e46d`.
+
+The follow-up raises the airborne survey cap from 1.98 m to 2.10 m with the stock jump and stock vault admission window. At 2.10 m, the handoff requires about 0.61 m of actual rise. The capture now reports the highest observed rise, geometry survey phase, starting overlap and landing-support refusal. Thin freestanding walls that lack a standing area on top need a separate vault-over path and verified far-side landing.
+
+The native fixtures and 46 Python tests passed. The existing package was verified and the follow-up attached to retail PID 28276 before save load after backing up 237 saves.
+
+## First airborne vault passed in retail
+
+PID 15948 measured a ledge 1.9700 m above takeoff. On one normal Jump, Henry rose 0.5048 m, leaving 1.4652 m of remaining height at handoff. The stock VaultOnto request passed the airborne clearance checks and the native framework accepted it. The player confirmed the midair vault and ascent. The trial deliberately limited handoffs to one per level load. Live capture snapshot SHA-256 `aac1e71e39c6aa6f82bd184ec17df0ec0dc03f19f7c32b4205ef36310d66d168`.
+
+The follow-up replaces the per-load limit with one handoff per fresh Jump. A later Jump measures its own takeoff position and can reuse the existing tall guide. The stock vault window, request ownership and live clearance checks still apply.
+
+The repeatable build passed its native fixtures and attached to retail PID 11928 before save load. The existing guide package was verified and 237 saves were backed up. Repeated airborne climbs in one retail session remain to be tested.
+
+## One-Jump stock vault trial built
+
+On a normal Jump with no existing guide, the experimental build can measure a static ledge 1.72–1.98 m above verified launch support. It lets the normal jump begin and tracks the live player on the pinned movement request callback. A 750 ms intent binds the launch to the actor, the level generation and that ledge. At most one handoff runs per level load, while the actual rising pose puts the remaining height in the stock VaultOnto range.
+
+The handoff rechecks the standing capsule, current airborne overlap, wall section, rise and crossing sweeps, and landing support. It offers the exact new guide to the original selector with stock animation parameters. The build and fixtures passed. Retail acceptance, animation and landing remain to be tested.
+
+The launcher verified the existing pool package, backed up 237 saves, and attached the trial to retail PID 15948 before save load.
+
+## Multiple newly detected guides accepted in one retail session
+
+PID 17056 registered eight distinct runtime guide handles, 4131 through 4138. KCD2 accepted VaultOnto for each on its registration Jump. The player reported reliable climbs from waist to head height. The capture contains no accepted reuse Jump. Twenty-nine attempts stopped in geometry detection and one at clearance. The geometry event does not isolate the individual failed measurement.
+
+The runtime detector caps measured height at 1.65 m. The scoped VaultOnto allowance is 1.70 m and still uses the existing animation. The player reported that walls above the tested 1.64 m height did not climb. A separate taller motion and its clearance checks remain open. Live capture snapshot SHA-256 `9cb41f4f5ee14931b6e7718b435916b5f1baf54dcb98d6d085b0e34ebed6b3c2`.
+
+## Runtime wall pool ready for retail playtest
+
+The package reserves 64 inactive slots. When the stock lookup misses, the runtime path chooses the closest compatible registered guide or measures a new one on fresh Jump. Each registration receives its own native handle and retains it until the level’s guide data reloads. Duplicate registrations are refused and a full pool still admits climbs through registered guides. Ground, stance, capsule corridor and landing support checks run before native admission.
+
+The native fixtures published all 64 slots, checked each handle, refused duplicates and overflow, and retrieved the first wall again from the full pool. All 46 Python tests passed. Retail coverage across multiple newly detected walls remains to be tested.
+
+The package was installed and hash-verified after backing up 237 saves. The launcher attached the pool build to retail PID 17056 before save load.
+
+## Runtime guide registered and accepted in retail
+
+PID 2560 published guide 4131 during Jump transaction 36179. KCD2 selected VaultOnto and accepted it on the same Jump. Transactions 37284 and 40183 reused the guide and passed the live checks and native framework again. Animation, landing and control return were not reported for these attempts.
+
+Two pre-registration attempts stopped at geometry detection. After publication, 37 recorded Jumps missed the stock query and were outside the registered guide’s approach, so the occupied slot prevented further runtime measurements. Five separate requests through stock guides were accepted. Live capture snapshot SHA-256 `52f782c4ca64f991f7ef0fe0c00f9e7d965ba6555359a59b25da65de2a53faf1`.
+
+## One runtime guide slot staged
+
+The package reserves a third inactive guide with two placeholder markers. On an ordinary native lookup miss from a fresh Jump, the runtime build can measure a static wall, check ground and standing posture, and sweep the body corridor and landing. It can then publish the measured endpoints to the owned slot for that level load. The slot is kept out of the spatial index. The guarded player query offers its exact in-bounds handle to the original selector, which still owns action selection and movement. The release path checks the live corridor again.
+
+The slot stays fixed once published. The loader invalidates it before the original member body can replace storage. A save reload can free the slot without a game restart. Unrestricted insertion, removal and reuse in the shared spatial index are still open.
+
+The native build and 46 Python tests passed. The runtime profile was installed and hash-verified after backing up 237 saves. The loader attached to retail PID 2560 before save load. First retail registration and climbing at a newly detected wall await manual testing.
+
+## Longer guide found directly in retail
+
+The live PID 34936 snapshot recorded seven accepted tall-wall requests using direct native lookup, with no lookup retries. Accepted approaches were about 0.61–1.00 m from the lip and up to 0.81 m to one side and 0.83 m to the other. All seven passed the three-lane wall survey and capsule checks. The short wall also recorded an acceptance.
+
+The native selector refused four tall-guide hits, including three at about 0.42 m from the lip. Three type-4 selections stopped at the approach envelope. A fourth faced about 24 degrees off the normal and failed the aim gate. Other nearby Jumps returned no guide, including attempts past the longer strip. No logged miss reached a wall survey or capsule clearance refusal. Live capture snapshot SHA-256 `08c7b9c353371146e3a7c62d29d8de9b9dd633f7529e93679c509a5c3e68b542`.
+
+## Longer 1.64 m wall ready for a one-session playtest
+
+The long-wall build replaces the two positions of the owned tall guide at normal Kuttenberg index build. It widens the in-memory guide from 0.50 m to 2.70 m and leaves the inactive package on disk. The native action projects Henry onto the ledge segment. Each Jump surveys three lanes across the projected section for a consistent wall face and top before running the existing standing capsule corridor and landing-support checks. The log distinguishes a wall section refusal from a capsule clearance refusal.
+
+The pinned build and 46 Python tests passed. The owned-process fixtures cover both sides at three distances and validate the exact original and longer member generations. The in-memory guide is temporary for the loaded level. This experiment exercises the normal host index build and does not establish insertion into an already live index.
+
+The loader verified the existing two-wall package, backed up 237 saves, and attached the longer-wall build to retail PID 34936 before save load. Long-guide registration and climbs await the retail playtest.
 
 ## Tall lookup retry passed in retail
 

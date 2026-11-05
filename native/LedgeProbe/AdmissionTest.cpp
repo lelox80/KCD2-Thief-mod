@@ -38,6 +38,64 @@ unsigned testMode=0;
 thread_local bool stackArgumentsSeen=false,opaqueArgumentsSeen=false,holderSeen=false;
 constexpr std::uintptr_t Opaque1=0x1020304050607080ull,Opaque3=0x8877665544332211ull,Restriction=0x0abc1234ffffull;
 std::uint32_t alternateOutput=0;
+#ifdef KT_LEDGE_RUNTIME_WALL
+unsigned surveyCalls=0;
+bool surveyBlocked=false;
+unsigned heightFixture=0;
+float crestSweepEnd=0;
+float __fastcall surveyQuery(void*,ktcapsule::Packet* packet,void*,const char*) {
+    ++surveyCalls;
+    if(heightFixture) {
+        if(packet->delta.y>1.0f) return 0.70f;
+        if(packet->delta.y>0) return 0.35f;
+        if(packet->delta.z<-1.0f) {
+            if(heightFixture==3) return packet->primitive->radius>0.02f?0.1463f:0.245f;
+            if(packet->primitive->radius>0.02f) return 0.66f;
+            return heightFixture==1?0.55f:0.70f;
+        }
+        return packet->delta.z<0?0.17f:0.0f;
+    }
+    if(surveyCalls==1) return 0.70f;
+    if(surveyCalls==2) return surveyBlocked?1.0f:0.0f;
+    if(surveyCalls==3) return packet->primitive->center.z>5.0f?0.49f:0.39f;
+    return packet->delta.z<0?0.17f:0.35f;
+}
+float __fastcall crestSweep(void*,ktcapsule::Packet* packet,void*,const char*) {
+    const float end=packet->primitive->center.y+(packet->delta.y>0?packet->delta.y:0);
+    if(end>crestSweepEnd) crestSweepEnd=end;
+    return 0;
+}
+#endif
+#ifdef KT_LEDGE_VAULT_TRACE
+bool traceArgs=false,traceExitSeen=false;
+void* __fastcall traceConstructor(void* storage,void* actor,const void* transform,std::uint32_t type,
+                                  float blend,float low,float high,std::uint8_t a,std::uint8_t b,std::uint8_t c) {
+    traceArgs=actor==storage&&transform==storage&&type==4&&blend==0.5f&&low==0.45f&&high==1.5f&&
+        a==1&&b==2&&c==3;
+    return storage;
+}
+void __fastcall traceExit(void*) {traceExitSeen=true;}
+unsigned releaseQueries=0,blockReleaseQuery=0;
+float __fastcall traceReleaseSweep(void*,ktcapsule::Packet* packet,void*,const char*) {
+    ++releaseQueries;
+    check(packet->primitive->center.x==1&&packet->primitive->center.y==2&&
+          packet->delta.x==0&&packet->delta.y==0,"release clearance stays directly above the player");
+    if(releaseQueries==2) check(std::abs(packet->delta.z-0.06f)<0.001f,"release sweeps upward to the checked height");
+    return releaseQueries==blockReleaseQuery?0.02f:0.0f;
+}
+float surveyLimit=0;
+bool unboundedCrest=false;
+float __fastcall traceCrown(void*,ktcapsule::Packet* packet,void*,const char*) {
+    const float depth=packet->primitive->center.y;
+    surveyLimit=std::max(surveyLimit,depth);
+    if(packet->delta.z==0) return 0;
+    check(packet->delta.x==0&&packet->delta.y==0&&packet->delta.z> -0.84f,
+          "crown survey stays above the lower street");
+    if(!unboundedCrest&&depth>0.43f) return 0;
+    const float top=unboundedCrest?depth:std::min(depth*1.58f,0.48f);
+    return 0.78f-0.028f-top;
+}
+#endif
 #ifdef KT_LEDGE_TALL_PREVIEW
 void* __fastcall targetParams(void* bank,std::uint32_t) {return bank;}
 #endif
@@ -209,12 +267,170 @@ int main() {
         activationArmed=true;
         indexEpoch=activeEpoch=1;
         check(activeGuide(1)&&!activeGuide(2),"only the indexed member generation is active");
-        markers[(ktledge::DryMarkerCount-1)*28]^=1;
+        const auto lastFixedMarker=(ktledge::DryMarkerStart+2*ktledge::FixedGuideCount-1)*28;
+        markers[lastFixedMarker]^=1;
         check(!activeGuide(1)&&enableOwnedGuide(manager,true)==IndexResult::Markers,
             "changed active marker is refused");
-        markers[(ktledge::DryMarkerCount-1)*28]^=1;
+        markers[lastFixedMarker]^=1;
 #endif
-        for(unsigned index=0;index<ktledge::DryGuideCount;++index) {
+#ifdef KT_LEDGE_RUNTIME_WALL
+        const ktvault::Wall measured{ktledge::NoGuide,
+            {{1,2,3},{1,3.2f,4.1f},4.26f},{0,1,0},{1,2.8f,4.1f},0.27f};
+        ktvault::Wall restored;
+        const float forward[]={0,1,0};
+        unsigned used=0;
+        check(!lookupRuntime(1,measured.corridor.approach,forward,restored,used)&&used==0,
+            "no unpublished slot is visible");
+        for(unsigned slot=0;slot<ktledge::RuntimeGuideCount;++slot) {
+            auto proposed=measured;
+            const float shift=static_cast<float>(2*slot);
+            proposed.lip.x+=shift;
+            proposed.corridor.approach.x+=shift;
+            proposed.corridor.landing.x+=shift;
+            check(publishRuntime(1,proposed)&&proposed.handle==ktledge::runtimeHandle(slot)&&
+                lookupRuntime(1,proposed.corridor.approach,forward,restored,used)&&
+                restored.handle==proposed.handle&&used==slot+1,"distinct walls keep distinct native handles");
+            auto duplicate=proposed;
+            duplicate.handle=ktledge::NoGuide;
+            check(!publishRuntime(1,duplicate),"duplicate wall cannot consume another slot");
+            const auto runtimeOffset=(ktledge::RuntimeGuideObject+slot)*ktledge::LedgeSize+8;
+            std::uint16_t runtimeFlags=0;
+            memcpy(&runtimeFlags,ledges.data()+runtimeOffset,sizeof runtimeFlags);
+            check(runtimeFlags==ktledge::RuntimeSideFlags&&!(runtimeFlags&2),
+                "runtime guide stays outside the shared spatial index");
+        }
+        auto excess=measured;
+        excess.lip.x+=1000;
+        check(!publishRuntime(1,excess)&&
+            lookupRuntime(1,measured.corridor.approach,forward,restored,used)&&
+            restored.handle==ktledge::runtimeHandle(0)&&used==ktledge::RuntimeGuideCount,
+            "a full pool leaves the first guide reusable and refuses overflow");
+        check(!ktledge::exactRuntimeHandle(ktledge::runtimeHandle(0)|1)&&
+              !ktledge::runtimeObject(ktledge::runtimeHandle(ktledge::RuntimeGuideCount)),
+              "wrong-side and out-of-range handles are refused");
+        check(!lookupRuntime(2,measured.corridor.approach,forward,restored,used),
+              "another generation cannot borrow a live handle");
+        invalidateRuntime();
+        check(!lookupRuntime(1,measured.corridor.approach,forward,restored,used)&&!publishRuntime(1,excess),
+            "load invalidation retires every guide before member storage is released");
+        indexEpoch=activeEpoch=1;
+        for(unsigned slot=0;slot<ktledge::RuntimeGuideCount;++slot) {
+            const auto runtimeOffset=(ktledge::RuntimeGuideObject+slot)*ktledge::LedgeSize+8;
+            memcpy(ledges.data()+runtimeOffset,before.data()+runtimeOffset,sizeof ktledge::RuntimeSideFlags);
+#ifdef KT_LEDGE_AIR_VAULT
+            const auto markerOffset=(ktledge::RuntimeMarkerStart+2*slot)*sizeof(ktruntime::Marker);
+            memcpy(markers.data()+markerOffset,ktruntime::Placeholder,sizeof ktruntime::Placeholder);
+#endif
+        }
+        check(ktruntime::detect(surveyQuery,nullptr,nullptr,nullptr,{1,2,3},forward,restored)&&
+            restored.handle==ktledge::NoGuide&&std::abs(restored.lip.z-4.4f)<0.001f&&surveyCalls==9,
+            "bounded live geometry detector derives a new lip from contact distances");
+        surveyCalls=0;
+        ktvault::Wall crest;
+        ktruntime::SurveyReading crestSurvey;
+        check(ktruntime::detect(surveyQuery,nullptr,nullptr,nullptr,{1,2,3},forward,crest,false,&crestSurvey,true)&&
+              crestSurvey.stage==ktruntime::Survey::Crest&&crest.crestOnly&&surveyCalls==9,
+              "shallow crest uses its own face and top samples");
+        ktcapsule::Corridor crestRoute;
+        check(ktvault::approachRoute(crest,{1.10f,2,3},forward,crestRoute)&&
+              crestRoute.landing.y==crest.lip.y&&std::abs(crestRoute.landing.x-1.10f)<0.001f,
+              "crest corridor ends at the projected native guide");
+        const auto crestSection=ktruntime::section(crest,crestRoute);
+        check(crestSection.crestOnly&&crestSection.lip.y==crestRoute.landing.y,
+              "clearance rechecks the actual point on the crest");
+        ktcapsule::Control crestControl;
+        ktcapsule::wallRoute(crestSweep,nullptr,nullptr,nullptr,1.05f,crestControl,{1.10f,2,3},crestRoute);
+        check(crestControl.routeComplete&&crestSweepEnd<=crest.lip.y+0.001f,
+              "standing capsule center never sweeps beyond the crest");
+        heightFixture=1;
+        ktruntime::SurveyTrace measuredHeights;
+        check(ktruntime::survey(surveyQuery,nullptr,nullptr,nullptr,{1,2,3},forward,crest,true,measuredHeights)&&
+              crest.crestOnly&&measuredHeights.broad.stage==ktruntime::Survey::Height&&
+              measuredHeights.broad.heightKnown&&std::abs(measuredHeights.broad.height-1.70f)<0.001f&&
+              measuredHeights.crest.heightKnown&&std::abs(measuredHeights.crest.height-1.842f)<0.001f,
+              "height refusal retries the crest and preserves both measurements");
+        char heightRecord[2048]="{";
+        appendSurvey(heightRecord,"tall",measuredHeights);
+        check(strstr(heightRecord,"\"tall_broad_height_m\":1.7000")&&
+              strstr(heightRecord,"\"tall_crest_height_m\":1.8420"),"audit includes both measured heights");
+        heightFixture=2;
+        check(!ktruntime::survey(surveyQuery,nullptr,nullptr,nullptr,{1,2,3},forward,crest,true,measuredHeights)&&
+              measuredHeights.crest.stage==ktruntime::Survey::Height&&measuredHeights.crest.heightKnown,
+              "out-of-range crest is measured and still refused");
+        heightFixture=3;
+        check(ktruntime::survey(surveyQuery,nullptr,nullptr,nullptr,{1,2,3},forward,crest,true,measuredHeights)&&
+              measuredHeights.broad.stage==ktruntime::Survey::Height&&crest.crestOnly&&
+              std::abs(measuredHeights.crest.height-2.147f)<0.001f,
+              "the observed 2.147 m crest fits after the broad 2.2137 m height is refused");
+        heightFixture=0;
+#ifdef KT_LEDGE_AIR_VAULT
+        surveyCalls=0;
+        check(ktruntime::detect(surveyQuery,nullptr,nullptr,nullptr,{1,2,3},forward,restored,true)&&
+              std::abs(restored.lip.z-4.87f)<0.001f,"jump trial measures a higher lip separately");
+        ktair::Flight flight;
+        ktvault::Contact sample{{1,2,3},true,false};
+        const auto launch=sample.position;
+        check(flight.observe(sample,launch,restored.lip.z,10)==ktair::Step::Waiting,
+              "one normal grounded launch must lift off");
+        sample={{1,2,3.15f},false,true};
+        check(flight.observe(sample,launch,restored.lip.z,100)==ktair::Step::Rising,
+              "wait while the lip is above stock range");
+        sample.position.z=3.40f;
+        check(flight.observe(sample,launch,restored.lip.z,180)==ktair::Step::Ready,
+              "actual rise opens the stock vault window");
+        sample.position.z=3.34f;
+        check(flight.observe(sample,launch,restored.lip.z,200)==ktair::Step::Lost&&
+              flight.observe(sample,launch,restored.lip.z,751)==ktair::Step::Expired,
+              "descending and stale intents are refused");
+        ktair::Flight upperLimit;
+        const float upperLedge=launch.z+ktruntime::AirMaxHeight;
+        sample.position.z=3.70f;
+        check(upperLimit.observe(sample,launch,upperLedge,150)==ktair::Step::Rising,
+              "a taller wall still requires the stock vault window");
+        sample.position.z=3.74f;
+        check(upperLimit.observe(sample,launch,upperLedge,160)==ktair::Step::Ready,
+              "the upper test band can hand off when the real jump reaches the window");
+        sample.position.z=3.79f;
+        check(upperLimit.observe(sample,launch,upperLedge,170)==ktair::Step::Lost,
+              "rise beyond the observation window is refused");
+        Frame airFrame;
+        airFrame.guideEpoch=1;
+        airFrame.actor=11;
+        airFrame.sample.entity=73;
+        sample.position.z=3.40f;
+        AirIntent snapshot;
+        check(queueAirIntent(airFrame,restored,launch)&&
+              sampleAirIntent(11,73,sample,true,snapshot)==ktair::Step::Ready&&
+              sampleAirIntent(11,73,sample,true,snapshot)==ktair::Step::Lost,
+              "one launch intent gives at most one handoff");
+        auto registered=restored;
+        check(readyAirGuide(1,registered)&&registered.handle==ktledge::runtimeHandle(0)&&runtimeCount==1,
+              "first handoff can publish the tall guide");
+        const ktcapsule::Vector laterLaunch{1.05f,2,3.03f};
+        check(!lookupRuntime(1,laterLaunch,forward,restored,used)&&
+              lookupRuntime(1,laterLaunch,forward,restored,used,true)&&restored.handle==registered.handle,
+              "tall guide is reused only by the airborne path");
+        check(queueAirIntent(airFrame,restored,laterLaunch)&&
+              sampleAirIntent(11,73,sample,true,snapshot)==ktair::Step::Ready&&
+              snapshot.launch.z==laterLaunch.z&&readyAirGuide(1,snapshot.wall)&&runtimeCount==1,
+              "a later Jump uses its own takeoff and keeps the registered guide");
+        invalidateRuntime();
+        indexEpoch=activeEpoch=1;
+        const auto firstRuntimeFlag=ktledge::RuntimeGuideObject*ktledge::LedgeSize+8;
+        memcpy(ledges.data()+firstRuntimeFlag,before.data()+firstRuntimeFlag,sizeof ktledge::RuntimeSideFlags);
+        ktcapsule::Control airborneClearance;
+        airborneClearance.complete=true;
+        airborneClearance.routeComplete=true;
+        check(ktvault::clear(airborneClearance,true)&&!ktvault::clear(airborneClearance),
+              "airborne corridor does not require support beneath the moving capsule");
+        airborneClearance.sweeps[1]=0.10f;
+        check(!ktvault::clear(airborneClearance,true),"an airborne obstruction still refuses release");
+#endif
+        surveyCalls=0;surveyBlocked=true;
+        check(!ktruntime::detect(surveyQuery,nullptr,nullptr,nullptr,{1,2,3},forward,restored)&&surveyCalls==2,
+            "geometry detector rejects a blocked upper start before publishing");
+#endif
+        for(unsigned index=0;index<ktledge::FixedGuideCount;++index) {
             const auto offset=(ktledge::DryGuideObject+index)*ktledge::LedgeSize+8;
             std::uint16_t flags=0;
             memcpy(&flags,ledges.data()+offset,sizeof flags);
@@ -227,6 +443,148 @@ int main() {
 #endif
     Owner owner(73);std::uint32_t entity=0;
     check(ownerId(owner.actor,entity)&&entity==73,"complete actor owner chain");
+#ifdef KT_LEDGE_VAULT_TRACE
+    {
+        alignas(8) unsigned char grab[0xf0]{};
+        const auto actor=reinterpret_cast<std::uintptr_t>(owner.actor);
+        const ktcapsule::Vector target{1.25f,2.50f,3.75f};
+        ptr(grab,0,gameBase+kttrace::GrabVtable);
+        ptr(grab,0x98,actor);
+        memcpy(grab+0xc8,&target,sizeof target);
+        std::uintptr_t observedOwner=0;
+        ktcapsule::Vector copied;
+        check(readGrab(grab,observedOwner,copied)&&observedOwner==actor&&copied.z==3.75f,
+              "grab target and actor offsets read exactly");
+        originalGrabCreate=traceConstructor;
+        originalGrabExit=traceExit;
+        check(observedGrabCreate(grab,grab,grab,4,0.5f,0.45f,1.5f,1,2,3)==grab&&traceArgs,
+              "grab constructor forwards its full ABI and return");
+        observedGrabExit(grab);
+        check(traceExitSeen,"grab release preserves original callback");
+        Frame crestFrame;
+        crestFrame.actor=actor;
+        crestFrame.guideEpoch=1;
+        crestFrame.sample.entity=73;
+        crestFrame.sample.transaction=17;
+        crestFrame.sample.selection={4,ktledge::runtimeHandle(0)};
+        crestFrame.checkedCrest={2894.05469f,759.333496f,63.2343559f};
+        crestFrame.runtimeWall.facing={-0.025878f,-0.999665f,0};
+        fixtureCallers=true;
+        armVaultTrace(crestFrame);
+        ktcapsule::Vector adjusted;
+        check(!readCrestAdjustment(actor,73,ktledge::runtimeHandle(1),crestFrame.checkedCrest,adjusted)&&
+              !readCrestAdjustment(actor,73,ktledge::runtimeHandle(0),target,adjusted)&&
+              readCrestAdjustment(actor,73,ktledge::runtimeHandle(0),crestFrame.checkedCrest,adjusted)&&
+              std::abs(adjusted.y-crestFrame.checkedCrest.y-0.24f)<0.001f&&
+              std::abs(adjusted.z-crestFrame.checkedCrest.z-0.03f)<0.001f,
+              "only the exact checked crest gets the measured near-side and vertical correction");
+        check(!kttrace::crestCorrection(target,crestFrame.runtimeWall.facing,adjusted),
+              "other walls cannot borrow the crest calibration");
+        check(!bindVaultTrace(grab,actor,73,ktledge::runtimeHandle(1),adjusted,crestFrame.checkedCrest,true).transaction&&
+              bindVaultTrace(grab,actor,73,ktledge::runtimeHandle(0),adjusted,crestFrame.checkedCrest,true).transaction==17,
+              "target joins the exact crest handle and actor");
+        const bool wrongEntityIgnored=!takeVaultTrace(grab,actor,74).transaction;
+        const auto released=takeVaultTrace(grab,actor,73);
+        check(wrongEntityIgnored&&released.transaction==17&&released.targetAdjusted&&
+              released.facing.y==crestFrame.runtimeWall.facing.y&&
+              !takeVaultTrace(grab,actor,73).transaction,"only the matched grab releases the trace once");
+        float upward=0;
+        const ktcapsule::Vector crest{0,0,2},gravity{0,0,-9.81f};
+        check(!kttrace::releaseVelocityRefusal(crest,{0.01f,0.01f,1.98f},{0,0,-0.2f},gravity,upward)&&
+              upward>2.4f&&upward<2.45f&&
+              kttrace::releaseVelocityRefusal(crest,{0,0.08f,1.98f},{},gravity,upward)&&
+              kttrace::releaseVelocityRefusal(crest,{0,0,1.92f},{},gravity,upward)&&
+              kttrace::releaseVelocityRefusal(crest,{0,0,1.98f},{0,0,-4.0f},gravity,upward)&&
+              kttrace::releaseVelocityRefusal(crest,{0,0,1.98f},{},{},upward),
+              "physical lift uses bounded gravity, distance and velocity");
+        // Displacement over the first frame of transaction 1592 estimates the
+        // initial drift. The shipped actor config and later fall give gravity.
+        const ktcapsule::Vector loggedCrest{2894.14819f,759.332214f,63.2336311f};
+        const ktcapsule::Vector loggedRelease{2894.15796f,759.332825f,63.2139397f};
+        const ktcapsule::Vector releaseEstimate{0.015f,0.751f,0.474f},retailGravity{0,0,-13.0f};
+        check(!kttrace::releaseVelocityRefusal(loggedCrest,loggedRelease,releaseEstimate,retailGravity,upward)&&
+              upward>2.06f&&upward<2.09f,"retail gravity and measured release drift fit the lift budget");
+        const auto highGravity=kttrace::releaseVelocityRefusal(loggedCrest,loggedRelease,releaseEstimate,{0,0,-15},upward);
+        const auto excessiveDrift=kttrace::releaseVelocityRefusal(loggedCrest,loggedRelease,{0,1,0},retailGravity,upward);
+        check(highGravity&&!strcmp(highGravity,"gravity")&&excessiveDrift&&!strcmp(excessiveDrift,"horizontal_velocity"),
+              "gravity and horizontal drift get distinct refusals");
+        const auto point=crestFrame.checkedCrest;
+        kttrace::Support support{point,point.z,1,true};
+        check(!strcmp(kttrace::supportState(support,point),"airborne"),
+              "a remembered crest height cannot pass as live support while flying");
+        support.flying=0;
+        check(!strcmp(kttrace::supportState(support,point),"grounded_near_crest"),
+              "ground contact at the crest is recognized");
+        support.position.z-=0.5f;
+        check(!strcmp(kttrace::supportState(support,point),"contact_height_mismatch"),
+              "ground flag with a stale height stays distinct");
+        support.groundHeight=support.position.z;
+        check(!strcmp(kttrace::supportState(support,point),"grounded_elsewhere"),
+              "landing below the crest cannot count as crest support");
+        kttrace::ReleaseWatch watch;
+        watch.begin({},100,grab);
+        check(watch.canLift(grab,180)&&!watch.canLift(reinterpret_cast<void*>(actor),110)&&
+              !watch.canLift(grab,181),"physical release applies only to the live owner inside its short window");
+        const ktcapsule::Vector handoffCrest{2894.01025f,759.334167f,63.2345886f};
+        const ktcapsule::Vector handoffPosition{2894.02075f,759.334229f,63.2153282f};
+        const auto zeroGravity=kttrace::releaseVelocityRefusal(handoffCrest,handoffPosition,{0,0,2.46774912f},{},upward);
+        check(zeroGravity==kttrace::WaitingForGravity&&upward==0&&kttrace::retryReleaseLift(zeroGravity),
+              "recorded zero-gravity handoff waits without issuing a lift");
+        watch.resolveLift(100,kttrace::retryReleaseLift(zeroGravity));
+        check(!watch.canLift(grab,107)&&watch.canLift(grab,115),"the next physics frame can recheck gravity");
+        const ktcapsule::Vector firstFrame{2894.021f,759.347046f,63.2233925f};
+        check(!kttrace::releaseVelocityRefusal(handoffCrest,firstFrame,{0,0.1f,-0.2f},retailGravity,upward)&&
+              upward>2.69f&&upward<2.72f,"a nearby airborne release can lift when gravity returns");
+        const ktcapsule::Vector rising{0,0,1};
+        check(kttrace::crestPushGate(crest,{0,0,2.28f},rising,retailGravity,0.37f,0.52f)==kttrace::Push::Wait&&
+              kttrace::crestPushGate(crest,{0,0,2.38f},rising,retailGravity,0.37f,0.52f)==kttrace::Push::Ready&&
+              kttrace::crestPushGate(crest,{0,0,2.38f},{0,0,-1},retailGravity,0.37f,0.52f)==kttrace::Push::Refused&&
+              kttrace::crestPushGate(crest,{0,0.07f,2.38f},rising,retailGravity,0.37f,0.52f)==kttrace::Push::Refused,
+              "push waits above the reported obstruction and requires rising beside the same crest");
+        kttrace::CrestProfile profile;
+        check(kttrace::surveyCrest(traceCrown,nullptr,"fixture",grab,{0,0,0},{0,1,0},profile)&&
+              std::abs(profile.rise-0.48f)<0.001f&&std::abs(profile.depth-0.36f)<0.001f&&
+              surveyLimit<0.49f&&profile.pushHeight()>profile.rise,
+              "the archived slope reaches a measured crown and the survey ends there");
+        check(!kttrace::releaseVelocityRefusal(crest,{0,0,1.98f},{0,0,-0.21f},retailGravity,upward,profile.apex())&&
+              upward>4.4f&&upward<4.5f,"the measured crown sets a bounded lift");
+        unboundedCrest=true;
+        kttrace::CrestProfile tooTall;
+        check(!kttrace::surveyCrest(traceCrown,nullptr,"fixture",grab,{0,0,0},{0,1,0},tooTall)&&tooTall.samples<=13,
+              "an incline without a bounded crown refuses");
+        const ktcapsule::Vector facing{-0.121585287f,-0.99258101f,0},motion{0.2f,0.1f,-0.2f};
+        ktcapsule::Vector push{0,0,upward};
+        check(kttrace::addCrestForward(facing,motion,push)&&push.y<0&&push.z==upward&&
+              std::abs((motion.x+push.x)*facing.x+(motion.y+push.y)*facing.y-kttrace::CrestCrossSpeed)<0.001f&&
+              std::abs(push.x*facing.y-push.y*facing.x)<0.001f&&
+              !kttrace::addCrestForward({0,0,1},motion,push),
+              "crossing adds bounded motion along the matched wall without altering the lift or lateral component");
+        const auto offCrest=kttrace::releaseVelocityRefusal(crest,{0,0.08f,1.98f},{},{},upward);
+        check(offCrest&&!kttrace::retryReleaseLift(offCrest)&&!kttrace::retryReleaseLift(highGravity),
+              "position and invalid gravity remain terminal refusals");
+        watch.resolveLift(115,false);
+        check(!watch.canLift(grab,133)&&!watch.takeLiftTimeout(181),"a terminal release decision consumes the lift");
+        check(!watch.canPush(grab,115),"the push requires a prior accepted lift");
+        watch.armPush(grab,115,0.016f,profile);
+        check(watch.canPush(grab,435)&&!watch.canPush(grab,436)&&watch.pushProfile.depth==profile.depth&&
+              !watch.canPush(reinterpret_cast<void*>(actor),120),"push receipt keeps the owner and deadline");
+        watch.begin({},100,grab);
+        check(!watch.takeLiftTimeout(180)&&watch.takeLiftTimeout(181)&&
+              !watch.takeLiftTimeout(182)&&!watch.canLift(grab,182),"persistent zero gravity expires once");
+        ktvault::Dimensions releaseDims;
+        releaseDims.center=1.05f;releaseDims.size[0]=0.35f;releaseDims.size[2]=0.40f;
+        for(unsigned blocked=0;blocked<=3;++blocked) {
+            releaseQueries=0;blockReleaseQuery=blocked;
+            check(kttrace::releaseSweep(traceReleaseSweep,nullptr,"fixture",grab,releaseDims,{1,2,3},0.06f)==(blocked==0)&&
+                  releaseQueries==(blocked?blocked:3),"overlap or obstruction vetoes the lift at release");
+        }
+        check(watch.claim(100)&&!watch.claim(115)&&watch.claim(116)&&watch.count==2&&
+              watch.expired(1051),"release watch is paced and expires");
+        watch.count=kttrace::ReleaseWatch::Limit;
+        check(!watch.claim(132),"release watch refuses samples beyond its limit");
+        fixtureCallers=false;
+    }
+#endif
     id(owner.entity,0xc,74);check(!ownerId(owner.actor,entity),"reused/mismatched identity refused");id(owner.entity,0xc,73);
     ktledge::Selection pair;check(!readSelection(nullptr,pair),"invalid selection guarded");
     std::uint32_t handle=0;check(!readHandle(nullptr,handle),"invalid query output guarded");
@@ -422,7 +780,7 @@ int main() {
             ktcapsule::Corridor route;
             const ktcapsule::Vector closer{lip.x-facing.x*0.5f,lip.y-facing.y*0.5f,start.z};
             const ktcapsule::Vector farther{lip.x-facing.x*1.2f,lip.y-facing.y*1.2f,start.z};
-            const ktcapsule::Vector outside{closer.x+facing.y*0.6f,closer.y-facing.x*0.6f,start.z};
+            const ktcapsule::Vector outside{closer.x+facing.y*1.5f,closer.y-facing.x*1.5f,start.z};
             check(ktvault::approachRoute(wall,closer,straight,route)&&
                   ktvault::approachRoute(wall,farther,straight,route),"closer and farther approaches permitted");
             check(!ktvault::approachRoute(wall,outside,straight,route)&&
@@ -432,6 +790,20 @@ int main() {
                   std::abs((route.landing.x-lip.x)*facing.y-(route.landing.y-lip.y)*facing.x-0.2f)<0.001f,
                   "landing follows the aimed lane within the authored strip");
         }
+#ifdef KT_LEDGE_LONG_WALL
+        const auto& wall=ktvault::Walls[0];
+        const auto lip=wall.lip;
+        const auto facing=wall.facing;
+        ktcapsule::Corridor route;
+        for(float offset:{-1.0f,1.0f}) {
+            const auto edge=ktlong::along(lip,offset);
+            for(float depth:{0.40f,0.90f,1.50f}) {
+                const ktcapsule::Vector start{edge.x-depth*facing.x,edge.y-depth*facing.y,wall.corridor.approach.z};
+                check(ktvault::approachRoute(wall,start,ktvault::TallLookupDirection,route),
+                    "extended segment accepts either side from near, normal and far starts");
+            }
+        }
+#endif
 #else
         check(KtProbeArm(nullptr)==0&&KtProbeArm(nullptr)==ERROR_ALREADY_INITIALIZED,"one explicit arm");
         check(trial(Opaque1,owner.actor,Opaque3,Restriction,idle)==0&&trialDeadline!=0,"idle cannot consume arm");

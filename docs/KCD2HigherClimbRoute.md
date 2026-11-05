@@ -1,5 +1,17 @@
 # Higher climbs: the remaining native route
 
+## Crest target and release sampling
+
+The grab constructor at `0xf45298` receives the resolved transform from `0xf43808` and copies its translation to `CActionLedgeGrab+0xc8`. The caller’s ledge state retains the guide handle eight bytes before the passed transform. The grab vtable’s Exit entry at `+0x20` points to `0x702b7c`. It clears the entered bit, changes the animation controller’s movement mode and restores the grabbed entity state. The trace copies the target at construction and reads the physical pose around Exit. Both records are scoped to the matched crest request.
+
+## Jump into the stock VaultOnto action
+
+The pinned retail selector receives the actor’s live position from the entity getter at `0x83216a`. At `0xf449f5–0xf449fe` it subtracts that position from the projected point on the ledge. The vertical component is compared with the selected slot’s allowed height interval at `0xf44ce8–0xf44cf6`. Shipped VaultOnto accepts 0.65–1.50 m of remaining height. An ordinary jump can therefore reduce the height seen by this check. Head or camera height alone is not the selector input.
+
+The selector can also call the trajectory helper at `0xf450f8` before that comparison. Its original instructions combine horizontal distance and actor state with a quadratic vertical projection. The standing entry separately checks actor state and input at `0x831e20` and `0x1533840`. The selected action computes its animation-height weight in a separate path. This leaves the airborne handoff and resulting motion to be verified in retail.
+
+The retail parameter XML authors VaultOnto but leaves the named PullUpMidAir and PullUpFalling slots without an authored profile. Test the stock VaultOnto handoff first. Measure a normal jump near one slightly higher supported ledge and log the live pose, reach, selector result and action result. A trial should bind one candidate to the original Jump, verify the airborne approach and supported landing with the live capsule, and expire without submitting an action if the player moves away, lands or the host refuses. The existing immediate-takeoff allowance covers only 100 ms and less than 5 cm of rise. It is not a midair vault handoff.
+
 Updated 2026-11-03. The native loader selected the owned Kuttenberg member and retained an appended inactive guide and its markers after the save loaded. Both experiments were archived and the baseline restored. [Loading contract](NativeGuideLoading.md) and [archive attribution](GuideSourceAttribution.md).
 
 The target is retail KCD2 1.5.6/build 23914554, `WHGame.dll` SHA-256 `bdf8f9e4a11257a72b64c84700e284c29e4c4ccaf5b8d4bfa7d0b2a7294479f7`. Tools 1.5.5 export compatibility remains a separate question.

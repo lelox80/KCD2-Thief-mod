@@ -7,7 +7,8 @@ from analyze_dry_guide_probe import owned
 from analyze_ledge_admission import analyze, integer
 
 HANDLE = 4129 << 16
-RESULTS = ("not_run", "physical", "ground", "stance", "position", "clearance", "released")
+RESULTS = ("not_run", "physical", "ground", "stance", "position", "clearance", "released",
+           "wall_section", "landing_support", "overlap")
 
 
 def review(rows):
@@ -33,7 +34,7 @@ def review(rows):
     problems = report["review_problems"]
     if len(requests) != len(exact) or len(requests) > 1 or accepted > forwards or forwards > len(exact):
         problems.append("Fixture requests do not reconcile with the one-shot guard")
-    if forwards and (result != len(RESULTS)-1 or stop.get("trial_armed") is not True):
+    if forwards and (RESULTS[result] != "released" or stop.get("trial_armed") is not True):
         problems.append("Forwarded request lacks a matching clearance release")
     clones = stop.get("tall_parameter_clones")
     if contract[0] == "bounded-tall-vault" and not integer(clones, forwards):

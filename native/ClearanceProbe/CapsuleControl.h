@@ -21,12 +21,18 @@ struct Control {
     float atPose=0,belowPose=0,downSweep=0;
     bool complete=false;
     bool routeComplete=false;
+    bool sectionRefused=false;
+    bool landingRefused=false;
     float overlaps[4]{},sweeps[3]{};
 };
 
 struct Corridor {
     Vector approach,landing;
     float crossingZ;
+};
+struct LedgeSection {
+    Vector lip,facing;
+    bool crestOnly=false;
 };
 constexpr Corridor RaisedPavement{{2897.048096f,766.461975f,61.337589f},
     {2897.150635f,767.440430f,62.340530f},62.50f};
@@ -61,6 +67,29 @@ inline bool groundControlsPass(const Control& control) {
         control.downSweep>0&&control.downSweep<-GroundDelta;
 }
 
+inline bool ledgeSectionClear(Query host,void* world,const char* tag,void* physical,const LedgeSection& section) {
+    const auto lip=section.lip,f=section.facing;
+    float faceDepth=0;
+    // Survey across a body-width strip at the projected grab point. Each lane
+    // needs a face close to the guide and a supported top just behind it.
+    constexpr float offsets[]={0,-0.22f,0.22f};
+    for(float side:offsets) {
+        const float x=lip.x+side*f.y,y=lip.y-side*f.x;
+        Shape sample{{x-f.x*0.45f,y-f.y*0.45f,lip.z-0.22f},{0,0,1},
+                     section.crestOnly?0.018f:0.04f,section.crestOnly?0.01f:0.02f};
+        const float reach=section.crestOnly?0.45f:0.62f;
+        const auto face=query(host,world,tag,physical,sample,{f.x*reach,f.y*reach,0});
+        if(!(face>(section.crestOnly?0.28f:0.23f)&&face<(section.crestOnly?0.445f:0.48f))) return false;
+        if(side==0) faceDepth=face;
+        else if(std::abs(face-faceDepth)>0.10f) return false;
+        const float inset=section.crestOnly?0.0f:0.13f;
+        sample.center={x+f.x*inset,y+f.y*inset,lip.z+0.23f};
+        const auto top=query(host,world,tag,physical,sample,{0,0,-0.32f});
+        if(!(top>0.10f&&top<0.24f)) return false;
+    }
+    return true;
+}
+
 // Bounded route between the archived v21 approach and center landing ray.
 // The raised crossing is a diagnostic path. It is independent of animation.
 inline void wallRoute(Query host,void* world,const char* tag,void* physical,float centerOffset,Control& output,
@@ -87,7 +116,8 @@ inline void wallRoute(Query host,void* world,const char* tag,void* physical,floa
 // Same source and shape for three controls. Use the living-player position
 // getter and the shipped PWI entry, with only the physical owner skipped.
 inline bool run(std::uintptr_t base,void* physical,float center,float radius,float halfSpan,Control& output,
-                bool fromLiveApproach=false,const Corridor& corridor=RaisedPavement,bool requireLandingSupport=false) {
+                bool fromLiveApproach=false,const Corridor& corridor=RaisedPavement,bool requireLandingSupport=false,
+                const LedgeSection* section=nullptr,bool airborne=false,const Vector* adjustedTarget=nullptr) {
     const auto world=*reinterpret_cast<void**>(base+WorldGlobal);
     if(!world||*reinterpret_cast<std::uintptr_t*>(world)!=base+WorldVtable||
        *reinterpret_cast<void**>(static_cast<unsigned char*>(physical)+0x68)!=world) return false;
@@ -100,15 +130,30 @@ inline bool run(std::uintptr_t base,void* physical,float center,float radius,flo
     const auto host=reinterpret_cast<Query>(base+Intersection);
     const auto tag=reinterpret_cast<const char*>(base+Tag);
     output.atPose=query(host,world,tag,physical,output.shape,{});
-    auto lowered=output.shape;
-    lowered.center.z+=GroundDelta;
-    output.belowPose=query(host,world,tag,physical,lowered,{});
-    output.downSweep=query(host,world,tag,physical,output.shape,{0,0,GroundDelta});
-    output.complete=std::isfinite(output.atPose)&&std::isfinite(output.belowPose)&&std::isfinite(output.downSweep);
+    output.complete=std::isfinite(output.atPose);
+    if(!airborne) {
+        auto lowered=output.shape;
+        lowered.center.z+=GroundDelta;
+        output.belowPose=query(host,world,tag,physical,lowered,{});
+        output.downSweep=query(host,world,tag,physical,output.shape,{0,0,GroundDelta});
+        output.complete=output.complete&&std::isfinite(output.belowPose)&&std::isfinite(output.downSweep);
+    }
     const auto anchor=corridor.approach;
-    if(groundControlsPass(output)&&std::abs(p.x-anchor.x)<8&&
+    if((airborne?(output.complete&&output.atPose==0):groundControlsPass(output))&&std::abs(p.x-anchor.x)<8&&
        std::abs(p.y-anchor.y)<8&&std::abs(p.z-anchor.z)<2) {
+        if(section&&!ledgeSectionClear(host,world,tag,physical,*section)) {
+            output.sectionRefused=true;
+            return true;
+        }
         wallRoute(host,world,tag,physical,center,output,fromLiveApproach?p:anchor,corridor);
+        if(output.routeComplete&&adjustedTarget) {
+            auto shape=output.shape;
+            const auto target=*adjustedTarget;
+            shape.center={target.x,target.y,corridor.crossingZ+center};
+            const auto descent=query(host,world,tag,physical,shape,{0,0,target.z-corridor.crossingZ});
+            shape.center.z=target.z+center;
+            output.routeComplete=descent==0&&query(host,world,tag,physical,shape,{})==0;
+        }
         if(output.routeComplete&&requireLandingSupport) {
             auto landing=output.shape;
             landing.center={corridor.landing.x,corridor.landing.y,corridor.landing.z+center};
@@ -117,6 +162,7 @@ inline bool run(std::uintptr_t base,void* physical,float center,float radius,flo
             const auto expected=center-radius-halfSpan;
             const auto hit=query(host,world,tag,physical,landing,{0,0,-(expected+0.09f)});
             output.routeComplete=expected>0.09f&&hit>expected-0.07f&&hit<expected+0.07f;
+            output.landingRefused=!output.routeComplete;
         }
     }
     return output.complete;

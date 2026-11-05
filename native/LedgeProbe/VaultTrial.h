@@ -1,6 +1,9 @@
 #pragma once
 
 #include "../ClearanceProbe/CapsuleControl.h"
+#ifdef KT_LEDGE_LONG_WALL
+#include "LongWall.h"
+#endif
 
 namespace ktvault {
 constexpr std::uint32_t Handle=4129u<<16;
@@ -20,9 +23,14 @@ struct Wall {
     ktcapsule::Corridor corridor;
     ktcapsule::Vector facing,lip;
     float halfWidth;
+    bool crestOnly=false;
 };
 constexpr Wall Walls[]={
+#ifdef KT_LEDGE_LONG_WALL
+    {Handle,ktcapsule::TallWall,Facing,ktlong::Lip,ktlong::HalfWidth},
+#else
     {Handle,ktcapsule::TallWall,Facing,{2895.337402f,794.275635f,65.958130f},0.25f},
+#endif
     {Handle+(1u<<16),ktcapsule::RaisedPavement,{0,1,0},{2897.121826f,767.061523f,62.353310f},0.30f},
 };
 
@@ -46,17 +54,31 @@ inline bool approachRoute(const Wall& wall,ktcapsule::Vector p,const float (&dir
     const float x=p.x-wall.lip.x,y=p.y-wall.lip.y;
     const float distance=-(x*f.x+y*f.y);
     const float side=x*f.y-y*f.x;
+    const float alongAim=side+distance*(direction[0]*f.y-direction[1]*f.x)/
+        (direction[0]*f.x+direction[1]*f.y);
+    float lane=0;
+#ifdef KT_LEDGE_LONG_WALL
+    if(wall.handle==Handle) {
+        // The native target projects the original actor onto the segment.
+        // Keep a margin at the ends for the local face and top survey.
+        if(!(distance>=0.36f&&distance<=1.55f&&std::abs(side)<=wall.halfWidth-0.22f&&
+             std::abs(alongAim)<=wall.halfWidth+0.07f&&std::abs(p.z-wall.corridor.approach.z)<0.12f))
+            return false;
+        lane=side;
+    } else
+#endif
+    {
     // The retry can pick up a nearby lane. Both paths still land within the
     // authored strip, and run clearance from the real physical position.
     const float maxDistance=recovered?1.45f:1.28f;
     const float maxSide=recovered?0.68f:wall.halfWidth+0.16f;
     if(!(distance>=0.45f&&distance<=maxDistance&&std::abs(side)<=maxSide&&
          std::abs(p.z-wall.corridor.approach.z)<0.12f)) return false;
-    const float alongAim=side+distance*(direction[0]*f.y-direction[1]*f.x)/
-        (direction[0]*f.x+direction[1]*f.y);
     if(std::abs(alongAim)>(recovered?0.70f:wall.halfWidth+0.07f)) return false;
-    const float lane=alongAim<-wall.halfWidth?-wall.halfWidth:
-        alongAim>wall.halfWidth?wall.halfWidth:alongAim;
+    const float projected=wall.crestOnly?side:alongAim;
+    lane=projected<-wall.halfWidth?-wall.halfWidth:
+        projected>wall.halfWidth?wall.halfWidth:projected;
+    }
     route=wall.corridor;
     const float landingSide=(route.landing.x-wall.lip.x)*f.y-(route.landing.y-wall.lip.y)*f.x;
     route.landing.x+=(lane-landingSide)*f.y;
@@ -74,14 +96,19 @@ inline bool tallRetryInRange(const float (&position)[3],const float (&direction)
 constexpr float TallLookupAnchor[]={2896.32568f,794.443054f,65.36646f};
 constexpr float TallLookupDirection[]={Facing.x,Facing.y,0};
 #endif
-enum class Result : unsigned {NotRun, Physical, Ground, Stance, Position, Clearance, Released};
+enum class Result : unsigned {NotRun, Physical, Ground, Stance, Position, Clearance, Released, WallSection,
+                              LandingSupport, Overlap};
+constexpr const char* ResultNames[]={"not_run","physical","ground","stance","approach","clearance","released",
+                                     "wall_section","landing_support","overlap"};
 struct LivingStatus {
     std::int32_t type=2,flying=-1;
-    unsigned char fields[0x40]{};
+    unsigned char fields[0x1c]{};
+    ktcapsule::Vector velocity;
+    unsigned char motionTail[0x18]{};
     float groundHeight=0;
     unsigned char tail[0x100-0x4c]{};
 };
-static_assert(offsetof(LivingStatus,groundHeight)==0x48);
+static_assert(offsetof(LivingStatus,velocity)==0x24&&offsetof(LivingStatus,groundHeight)==0x48);
 struct Dimensions {
     std::uint32_t type=1;
     float pivot=0,eye=0,size[3]{},center=0;
@@ -90,6 +117,10 @@ struct Dimensions {
     float groundContact=0;
 };
 static_assert(sizeof(Dimensions)==0x3c&&offsetof(Dimensions,capsule)==0x34);
+inline bool standingCapsule(const Dimensions& d) {
+    return d.capsule==1&&std::abs(d.pivot)<0.01f&&std::abs(d.center-1.05f)<0.01f&&
+           std::abs(d.size[0]-0.35f)<0.01f&&std::abs(d.size[1]-0.35f)<0.01f&&std::abs(d.size[2]-0.40f)<0.01f;
+}
 struct Contact {
     ktcapsule::Vector position;
     bool grounded=false,flying=false;
@@ -111,8 +142,9 @@ inline bool inApproach(ktcapsule::Vector p) {
         std::abs(p.z-Approach.z)<0.12f;
 }
 
-inline bool clear(const ktcapsule::Control& control) {
-    if(!ktcapsule::groundControlsPass(control)||!control.routeComplete) return false;
+inline bool clear(const ktcapsule::Control& control,bool airborne=false) {
+    if(!(airborne?(control.complete&&control.atPose==0):ktcapsule::groundControlsPass(control))||
+       !control.routeComplete) return false;
     for(float n:control.overlaps) if(n!=0) return false;
     for(float n:control.sweeps) if(n!=0) return false;
     return true;
@@ -134,9 +166,7 @@ inline Result inspect(std::uintptr_t base,void* actor,Contact& contact) {
         if(getStatus(physical,&status)!=1||(status.flying!=0&&status.flying!=1))
             return Result::Ground;
         Dimensions d;
-        if(reinterpret_cast<ktcapsule::ReadStatus>(base+GetParams)(physical,&d)!=1||d.capsule!=1||
-           !(std::abs(d.pivot)<0.01f&&std::abs(d.center-1.05f)<0.01f&&
-             std::abs(d.size[0]-0.35f)<0.01f&&std::abs(d.size[1]-0.35f)<0.01f&&std::abs(d.size[2]-0.40f)<0.01f))
+        if(reinterpret_cast<ktcapsule::ReadStatus>(base+GetParams)(physical,&d)!=1||!standingCapsule(d))
             return Result::Stance;
         ktcapsule::PosePacket pose;
         if(getStatus(physical,&pose)!=1) return Result::Position;
@@ -159,22 +189,27 @@ inline bool immediateTakeoff(const Contact& current,ktcapsule::Vector previous,s
         std::abs(p.y-previous.y)<0.045f&&p.z>=previous.z&&p.z-previous.z<0.05f;
 }
 
-inline Result checkClearance(std::uintptr_t base,void* actor,const ktcapsule::Corridor& route=Corridor) {
+inline Result checkClearance(std::uintptr_t base,void* actor,const ktcapsule::Corridor& route=Corridor,
+                             const ktcapsule::LedgeSection* section=nullptr,bool airborne=false,
+                             const ktcapsule::Vector* adjustedTarget=nullptr) {
     __try {
         auto physical=physicalOwner(base,actor);
         if(!physical) return Result::Physical;
         Dimensions d;
-        if(reinterpret_cast<ktcapsule::ReadStatus>(base+GetParams)(physical,&d)!=1||d.capsule!=1||
-           !(std::abs(d.pivot)<0.01f&&std::abs(d.center-1.05f)<0.01f&&
-             std::abs(d.size[0]-0.35f)<0.01f&&std::abs(d.size[1]-0.35f)<0.01f&&std::abs(d.size[2]-0.40f)<0.01f))
+        if(reinterpret_cast<ktcapsule::ReadStatus>(base+GetParams)(physical,&d)!=1||!standingCapsule(d))
             return Result::Stance;
         ktcapsule::Control control;
-        return ktcapsule::run(base,physical,d.center,d.size[0],d.size[2],control,true,route
 #ifdef KT_LEDGE_REPEATABLE
-            ,true
+        const bool requireSupport=!section||!section->crestOnly;
+#else
+        constexpr bool requireSupport=false;
 #endif
-            )&&clear(control)?
-            Result::Released:Result::Clearance;
+        const bool known=ktcapsule::run(base,physical,d.center,d.size[0],d.size[2],control,true,route,
+                                        requireSupport,section,airborne,adjustedTarget);
+        if(known&&control.sectionRefused) return Result::WallSection;
+        if(known&&control.landingRefused) return Result::LandingSupport;
+        if(known&&control.complete&&control.atPose!=0) return Result::Overlap;
+        return known&&clear(control,airborne)?Result::Released:Result::Clearance;
     } __except(EXCEPTION_EXECUTE_HANDLER) {return Result::Physical;}
 }
 }

@@ -19,7 +19,10 @@ constexpr std::uintptr_t QueryRva=0x832188,QueryCallerRva=0x8320f5,QueryReturnRv
 // The retail resolver decodes the high word as object index and the low word
 // as segment and side. Reserve the one appended object for this dry fixture.
 constexpr std::uint32_t DryGuideObject=4129,NoGuide=0xffffffffu;
-#ifdef KT_LEDGE_REPEATABLE
+#ifdef KT_LEDGE_RUNTIME_WALL
+constexpr unsigned RuntimeGuideCount=64,FixedGuideCount=2;
+constexpr unsigned DryGuideCount=FixedGuideCount+RuntimeGuideCount;
+#elif defined(KT_LEDGE_REPEATABLE)
 constexpr unsigned DryGuideCount=2;
 #else
 constexpr unsigned DryGuideCount=1;
@@ -27,6 +30,16 @@ constexpr unsigned DryGuideCount=1;
 constexpr std::uint32_t dryQueryResult(std::uint32_t handle) {
     return (handle>>16)-DryGuideObject<DryGuideCount?NoGuide:handle;
 }
+#ifdef KT_LEDGE_RUNTIME_WALL
+constexpr unsigned RuntimeGuideObject=DryGuideObject+2;
+constexpr std::uint32_t runtimeHandle(unsigned slot) {return (RuntimeGuideObject+slot)<<16;}
+constexpr bool runtimeObject(std::uint32_t handle) {
+    return (handle>>16)-RuntimeGuideObject<RuntimeGuideCount;
+}
+constexpr bool exactRuntimeHandle(std::uint32_t handle) {
+    return runtimeObject(handle)&&(handle&0xffff)==0;
+}
+#endif
 #endif
 constexpr std::uintptr_t FrameworkRva=0x85612c,FrameworkCallerRva=0x175e08b,FrameworkReturnRva=0x175e090;
 constexpr std::uintptr_t ManagerGlobalRva=0x5484b38,LedgeActionVtableRva=0x3c0d880;
